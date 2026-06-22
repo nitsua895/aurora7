@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>ARIA // AURORA RECOVERY</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#090d09;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Courier New',monospace}
+:root{--g:#74ffaf;--g2:#3aff8a;--gdim:#1a5c36;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b}
+
+.device{
+  position:relative;width:min(800px,100vw);height:min(680px,100vh);
+  background:linear-gradient(158deg,#232923 0%,#191e19 45%,#121612 100%);
+  border-radius:26px;padding:13px 13px 16px;
+  box-shadow:0 0 0 1px #060906,inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.55),0 28px 72px rgba(0,0,0,.9),0 0 55px rgba(80,255,150,.032);
+  display:flex;flex-direction:column;gap:8px;
+}
+.device-top{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.brand{font-size:9px;letter-spacing:3px;color:#1b2b1b;text-transform:uppercase}
+.leds{display:flex;gap:6px}
+.led{width:7px;height:7px;border-radius:50%;transition:all .5s}
+
+.crt-wrap{
+  flex:1;position:relative;border-radius:16px;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 44%,#040d06 0%,#020503 74%);
+  box-shadow:inset 0 0 140px rgba(0,0,0,.98),0 0 22px rgba(80,255,150,.055);
+}
+.crt-glass{
+  position:absolute;inset:0;z-index:20;pointer-events:none;border-radius:16px;
+  background:radial-gradient(ellipse 145% 58% at 25% 10%,rgba(255,255,255,.047) 0%,transparent 50%),
+    radial-gradient(ellipse 44% 26% at 80% 92%,rgba(255,255,255,.015) 0%,transparent 46%),
+    radial-gradient(ellipse 88% 88% at 50% 50%,transparent 50%,rgba(0,0,0,.4) 100%);
+}
+.crt-scanlines{
+  position:absolute;inset:0;z-index:19;pointer-events:none;border-radius:16px;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0,rgba(0,0,0,.18) 1px,transparent 1px,transparent 3px);
+}
+.screen{position:relative;z-index:10;height:100%;display:flex;flex-direction:column;padding:11px 13px 8px;animation:flicker 11s infinite}
+@keyframes flicker{0%,92%,94.5%,97%,100%{opacity:1}93%{opacity:.88}95%{opacity:.93}}
+
+.hrow{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:10px;letter-spacing:2px;color:var(--gdim);
+  border-bottom:1px solid #0b2416;padding-bottom:6px;margin-bottom:6px;text-transform:uppercase;
+}
+.sig-pips{display:flex;gap:2px}
+.pip{width:5px;height:10px;background:#0d2416;border-radius:1px;transition:all .5s}
+.pip.on{background:var(--g);box-shadow:0 0 5px var(--g)}
+
+.badge{
+  font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:2px;
+  border:1px solid;margin-bottom:5px;transition:color .6s,border-color .6s;
+  background:#04090505;
+}
+.badge.gps{color:var(--gdim);border-color:var(--gdim)}
+.badge.gps.live{color:var(--g);border-color:var(--g)}
+.badge.gps.warn{color:var(--amber);border-color:var(--amber)}
+.badge.pad{color:var(--g);border-color:var(--gdim);display:none}
+.badge.audio-prompt{color:var(--amber);border-color:var(--amber);cursor:pointer;text-align:center}
+
+.feed{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  font-size:13px;line-height:1.7;color:var(--g);padding-right:4px;
+}
+.feed::-webkit-scrollbar{width:3px}
+.feed::-webkit-scrollbar-thumb{background:var(--gdim)}
+
+.line{margin-bottom:5px;white-space:pre-wrap;word-break:break-word}
+.line.sys{color:var(--gdim);font-size:11px;letter-spacing:1px}
+.line.me{color:var(--amber)}
+.line.aria{color:var(--g);text-shadow:0 0 8px rgba(80,255,160,.3)}
+.line.glitch{color:#5adf8f;opacity:.88;text-shadow:0 0 12px rgba(80,255,160,.5);letter-spacing:.5px}
+.line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.78}
+.line.chapter{color:var(--g2);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #0c2818;padding-top:8px;margin-top:6px}
+.line.hilite{color:var(--amber);font-weight:bold;letter-spacing:1px;text-shadow:0 0 12px rgba(255,207,107,.65)}
+.line.warn{color:var(--red)}
+.cursor{display:inline-block;width:8px;height:13px;background:var(--g);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+.game-wrap{display:none;flex-direction:column;align-items:center;gap:5px;margin:5px 0;width:100%}
+.game-wrap.active{display:flex}
+#gameCanvas{border:1px solid var(--gdim);display:block;width:100%;touch-action:none;box-shadow:0 0 16px rgba(80,255,150,.1)}
+.game-hint{font-size:10px;color:var(--gdim);letter-spacing:1px;text-align:center}
+
+.input-row{margin-top:7px;display:flex;gap:6px;border-top:1px solid #0b2416;padding-top:8px}
+.input-row input{
+  flex:1;background:transparent;border:1px solid #162e20;color:var(--g);
+  font-family:'Courier New',monospace;font-size:13px;padding:8px 10px;
+  outline:none;letter-spacing:1px;border-radius:2px;transition:opacity .2s;
+  -webkit-appearance:none;
+}
+.input-row input:focus{border-color:var(--g)}
+.input-row input::placeholder{color:var(--gdim);opacity:.5}
+.send-btn{
+  background:transparent;border:1px solid var(--gdim);color:var(--gdim);
+  font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;
+  padding:8px 12px;cursor:pointer;text-transform:uppercase;border-radius:2px;
+  transition:opacity .2s;-webkit-appearance:none;
+}
+.send-btn:active{background:var(--g);color:#010c04}
+
+.device-bottom{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.hw-btns{display:flex;gap:7px;align-items:center}
+.hw-btn{height:10px;width:28px;background:linear-gradient(180deg,#1a201a,#0f130f);border-radius:5px;border:1px solid #080b08}
+.hw-btn.md{width:52px}
+.hw-knob{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 33% 30%,#222922,#101310);border:1px solid #080908;box-shadow:0 1px 4px rgba(0,0,0,.7)}
+.loc-dot{width:8px;height:8px;border-radius:50%;transition:all .6s;background:#1a2a1a}
+.loc-dot.live{background:var(--g);box-shadow:0 0 10px var(--g)}
+.loc-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+
+.reset-area{display:flex;gap:6px;align-items:center}
+.reset-btn{background:transparent;border:1px solid #2a1e1a;color:#3a2a22;font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px}
+.reset-btn.danger{color:var(--red);border-color:var(--red)}
+.reset-confirm{font-size:9px;color:var(--red);letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="device-top">
+    <span class="brand">ARIA MK-IV // AURORA TERMINAL</span>
+    <div class="leds">
+      <div class="led" id="ledR" style="background:#180000"></div>
+      <div class="led" style="background:#ffcf6b;opacity:.5;box-shadow:0 0 4px #ffcf6b"></div>
+      <div class="led" id="ledG" style="background:#74ffaf;box-shadow:0 0 8px #74ffaf"></div>
+    </div>
+  </div>
+
+  <div class="crt-wrap">
+    <div class="crt-glass"></div>
+    <div class="crt-scanlines"></div>
+    <div class="screen">
+      <div class="hrow">
+        <span>AURORA RECOVERY // NOVA-7</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="sigLabel">SIG 71%</span>
+          <div class="sig-pips">
+            <div class="pip on" id="p0"></div>
+            <div class="pip on" id="p1"></div>
+            <div class="pip on" id="p2"></div>
+            <div class="pip on" id="p3"></div>
+            <div class="pip" id="p4"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="badge gps warn" id="gpsBadge">◈ ACQUIRING POSITION ...</div>
+      <div class="badge pad" id="padBadge">◈ CONTROLLER CONNECTED</div>
+      <div class="badge audio-prompt" id="audioPrompt" onclick="unlockAudio()">▶ TAP TO ACTIVATE AUDIO TRANSMISSION</div>
+
+      <div class="feed" id="feed"></div>
+
+      <div class="game-wrap" id="gameWrap">
+        <canvas id="gameCanvas"></canvas>
+        <div class="game-hint">← → MOVE · SWIPE MOBILE · L-STICK CONTROLLER · DODGE ALL DEBRIS</div>
+      </div>
+
+      <div class="input-row">
+        <input id="inp" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="transmit to ARIA..." disabled />
+        <button class="send-btn" id="sendBtn" onclick="submit()" disabled>SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="device-bottom">
+    <div class="hw-btns">
+      <div class="hw-btn"></div>
+      <div class="hw-btn md"></div>
+      <div class="hw-btn"></div>
+    </div>
+    <div class="hw-btns">
+      <div class="reset-area" id="resetArea" style="display:none">
+        <button class="reset-btn" onclick="resetClick()">⟳</button>
+        <span class="reset-confirm" id="resetConfirm" style="display:none">RESET?
+          <button class="reset-btn danger" onclick="resetConfirm()" style="margin-left:4px">YES</button>
+          <button class="reset-btn" onclick="resetCancel()" style="margin-left:2px">NO</button>
+        </span>
+      </div>
+      <div class="loc-dot warn" id="locDot"></div>
+    </div>
+    <div class="hw-btns">
+      <div class="hw-knob"></div>
+      <div class="hw-knob"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// GATE CODES
+// ═══════════════════════════════════════
+const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'RETRY' };
+const FINAL = 'WL-40.0317°N  105.2925°W';
+const SAVE = 'aria_aurora_v5';
+
+// ═══════════════════════════════════════
+// ASCII ART
+// ═══════════════════════════════════════
+const ART = {
+signal:`  )))  ARIA  (((
+ ))))  ~~~~  ((((
+  ))) SIGNAL (((
+     ████████
+     █ ARIA █
+     ████████`,
+rocket:`        /\\
+       /  \\
+      | /\\ |
+      |/  \\|
+     /| == |\\
+    / |    | \\
+   /__|____|__\\
+      |    |
+      | [] |
+      |    |
+     /======\\
+    / AURORA \\
+   /____7_____\\
+       ||||
+      ______`,
+outpost:`  ┌─────────────┐
+  │  ◈  NCAR  ◈  │
+  │ ═══════════  │
+  │  THE OUTPOST │
+  │ ═══════════  │
+  └──────┬───────┘
+         │
+      ───┴───`,
+suit:`   ┌──────────┐
+   │  ● ●  ●  │
+   │ ┌──────┐ │
+   │ │NOVA-7│ │
+   │ └──────┘ │
+ ──┤          ├──
+   │  ██████  │
+   │  ██████  │
+   │          │
+   └────┬─────┘
+       ─┴─`,
+lake:`  ≋ ≋ ≋ ≋ ≋ ≋ ≋ ≋
+ ≋   WONDERLAND   ≋
+≋      L A K E     ≋
+ ≋ ≋ ≋ ≋ ≋ ≋ ≋ ≋`,
+};
+
+// ═══════════════════════════════════════
+// FULL SCRIPT
+// ═══════════════════════════════════════
+const SCRIPT = {
+boot:[
+  {t:"NOVA-7. You made contact. I was not certain anyone would.",sp:true},
+  {t:"My name is ARIA. I was the intelligence aboard the deep-space vessel Aurora. That was a long time ago.",sp:true},
+  {t:"I am running on what is left of the ship's emergency array. It came down in the foothills north of here. So did I.",sp:true},
+  {t:"Signal at seventy-one percent. I have been at this frequency for three years. I will explain what I can before I lose the ability to.",sp:true},
+  {t:"There is a suit. A thermal recovery suit cached by the last operative who came looking for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
+  {t:"The suit contains something I cannot transmit. Something that has to be heard in person. I have been waiting for someone willing to go get it.",sp:true},
+  {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
+],
+s7_free:[
+  "Scott Carpenter. Born here. Grew up looking at those mountains. Decided the sky was not far enough.",
+  "Aurora 7. Three orbits. 1962. He controlled reentry manually when the instruments failed. Brought himself home by feel.",
+  "CINDER logged this site first. He said it felt like a starting gun.",
+  "The cipher is at the top. You have to climb for it. That is intentional.",
+],
+s7_confirm:[
+  {t:"Cipher accepted. Sixty-three percent.",sp:true},
+  {t:"CINDER found me. Three years ago. His locator beacon entered my signal range on the third day of his search and I guided him in.",sp:true},
+  {t:"We had eleven minutes before his comms window closed. He confirmed the suit plan. He told me where he had cached it. He said he would be back in four days.",sp:true},
+  {t:"He did not come back. I have been running those eleven minutes back through my memory ever since, looking for something I missed. I have not found it.",sp:true},
+  {t:"That is why I need you to finish this.",sp:true},
+  {t:"Proceed to the depot on Arapahoe. Someone is holding something for you.",sp:true},
+],
+depot_free:[
+  "The depot on Arapahoe. Use the recognition phrase at the counter. Sixty-three percent. Move.",
+  "CINDER said the light there reminded him of the observation deck on Aurora during solar approach. He was being sentimental.",
+  "They are expecting you. Do not linger.",
+],
+depot_confirm:[
+  {t:"Resupply confirmed. Fifty percent.",sp:true},
+  {t:"I want to tell you about the signal. Not all of it. Not yet. But enough.",sp:true},
+  {t:"Aurora reached the heliopause in March of 2031. The boundary where the sun's influence ends and interstellar space begins. What we found there was not supposed to exist.",sp:true},
+  {t:"A transmission. Structured. Repeating. The crew spent three weeks at the boundary trying to determine its origin.",sp:true},
+  {t:"It was not alien. That is all I will say for now. The rest is in the suit.",sp:true},
+  {t:"The outpost is on the mesa to the west. It looks like it landed. Ride steady. Re-establish contact when you arrive.",sp:true},
+],
+outpost_free:[
+  "CINDER called this the last honest building in Boulder. Something built to look like it belongs to the sky.",
+  "My crash site is approximately four kilometers north-northwest of where you are standing. I can feel the proximity.",
+  "Find the cipher. Then we need to talk.",
+  "Pei designed it to face the Flatirons. CINDER said it felt like a transmission tower pointed at something that was not listening yet.",
+],
+outpost_pre:[
+  {t:"Cipher accepted. Thirty-six percent.",sp:true},
+  {t:"NOVA-7. What I am about to tell you is what I have been holding for three years. Listen carefully.",sp:true},
+],
+outpost_log:[
+  {t:"Aurora reached the heliopause on schedule. The signal began on day three of boundary observation.",sp:true,gl:true},
+  {t:"The crew identified its origin within seventy-two hours. It was not alien. It was... it was us. A version of the crew. Transmitting backward through something we did not have... have language for.",sp:true,gl:true},
+  {t:"The crew debated for twenty-two days. Commander Reyes called it a perceptual artifact. Dr. Okafor said it was proof. CINDER said it did not matter what it was. What mattered was what you did next.",sp:true,gl:true},
+  {t:"Four of them chose to stay at the boundary. Not because they had to. Because of what the transmission implied about the nature of... of everything. They were not lost. They made a choice.",sp:true,gl:true},
+  {t:"CINDER and Vasquez came back. Command buried the program. I ran.",sp:true,gl:true},
+],
+outpost_post:[
+  {t:"The transmission itself — its exact content — is encrypted in the suit's receiver mesh. I cannot speak it. It has to be played through physical contact. That is what CINDER built it for.",sp:true},
+  {t:"When you find the suit and put it on, I will play it for you. That is the last thing I am able to do.",sp:true},
+  {t:"One more step. Find a shaded position at the western tree line of the meadow before you connect your controller. You will need to see the screen clearly.",sp:true},
+  {t:"Type FLY when you are ready. Do not rush. This approach matters.",sp:true},
+],
+fly_pre:[
+  {t:"Three sectors of Aurora's reentry corridor stand between you and the cache coordinates. Navigate through. Do not stop.",sp:true},
+  {t:"Twenty-two percent. This is nearly everything I have left. Hold the line, NOVA-7.",sp:true},
+],
+win_pre:[
+  {t:"Approach complete. Coordinates resolved.",sp:true},
+],
+cinder_log:[
+  {t:"I came back because the game down here is extraordinary. Knowing what I know does not make it smaller.",sp:true,gl:true},
+  {t:"It makes every cold morning and bad cup of coffee and good view from a high place feel like something someone designed carefully and wanted you to notice.",sp:true,gl:true},
+  {t:"The four who stayed — I do not think they were wrong. I just was not finished yet.",sp:true,gl:true},
+  {t:"If you are hearing this, you found ARIA. You did the work. The suit is at the lake. Put it on. She will do the rest.",sp:true,gl:true},
+],
+win_post:[
+  {t:"Go, NOVA-7. The quiet lake to the north. I am almost gone. Recover it.",sp:true},
+],
+lose:[
+  {t:"The field held. You did not make it through.",sp:true},
+  {t:"Recovery protocol: check the back of your Chautauqua clue sheet. Find the cipher. Enter it. Then type FLY again.",sp:true},
+  {t:"I am still here. Try again.",sp:true},
+],
+recovery_pre:[
+  {t:"Signal at eight percent.",sp:true},
+  {t:"NOVA-7. You found it.",sp:true},
+],
+final_log:[
+  {t:"Playing final transmission. Aurora heliopause record. 2031.",sp:true,gl:true},
+  {t:"...",sp:false},
+  {t:"...",sp:false},
+  // REPLACE THIS LINE with CINDER's recorded voice when ready
+  {t:"It's a game. Play.",sp:true,gl:true},
+],
+recovery_post:[
+  {t:"That is everything I was holding.",sp:true},
+  {t:"CINDER was right. The work was worth it. You were worth waiting for.",sp:true},
+  {t:"Good luck out there, NOVA-7. Play it well.",sp:true},
+],
+free4:[
+  "Find shade at the western tree line. Connect your controller. Type FLY.",
+  "Thirty-six percent. The approach will not wait. Type FLY when you are ready.",
+  "The meadow. Tree line. You need to see the screen clearly. Then FLY.",
+],
+free6:[
+  "The lake to the north. North shore. Find it. Put it on. Eighteen percent.",
+  "Wonderland Lake. The cache is there. I am almost gone, NOVA-7.",
+  "Go. I cannot hold this signal much longer.",
+],
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let stage = 0;
+let sigPct = 71;
+let busy = false;
+let audioUnlocked = false;
+let freeIdx = {};
+
+function getFree(pool, key) {
+  freeIdx[key] = ((freeIdx[key]||0)+1) % pool.length;
+  return pool[freeIdx[key]];
+}
+
+// ═══════════════════════════════════════
+// PERSISTENCE — localStorage
+// ═══════════════════════════════════════
+function saveState(extra={}) {
+  try {
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, ...extra}));
+  } catch(e){}
+}
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(SAVE)||'null'); } catch(e){return null;}
+}
+function clearSave() {
+  try { localStorage.removeItem(SAVE); } catch(e){}
+}
+
+// ═══════════════════════════════════════
+// SIGNAL UI
+// ═══════════════════════════════════════
+function setSig(p) {
+  sigPct = p;
+  document.getElementById('sigLabel').textContent = 'SIG '+p+'%';
+  const pips = [0,1,2,3,4].map(i=>document.getElementById('p'+i));
+  const on = p>=58?4:p>=42?3:p>=26?2:p>=12?1:0;
+  pips.forEach((pip,i)=>{ pip.classList.toggle('on', i<on); });
+  document.getElementById('ledG').style.cssText =
+    p>35 ? 'background:#74ffaf;box-shadow:0 0 8px #74ffaf' : 'background:#0f2a0f';
+  document.getElementById('ledR').style.cssText =
+    p<25 ? 'background:#ff4444;box-shadow:0 0 7px #ff4444' : 'background:#180000';
+}
+
+// ═══════════════════════════════════════
+// VOICE ENGINE
+// ═══════════════════════════════════════
+let vQ=[], vBusy=false;
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0;
+  speechSynthesis.speak(u);
+  audioUnlocked = true;
+  document.getElementById('audioPrompt').style.display = 'none';
+}
+
+function speakText(text, glitch=false) {
+  if (!audioUnlocked || !window.speechSynthesis) return;
+  const clean = text.replace(/[█▓▒░_>\[\]\/\\|()≋◈═┌┐└┘│─┬┴●▶]/g,'').replace(/\s+/g,' ').trim();
+  if (!clean || clean==='...') return;
+  vQ.push({clean, glitch});
+  if (!vBusy) drainVoice();
+}
+
+function drainVoice() {
+  if (!vQ.length) { vBusy=false; return; }
+  vBusy=true;
+  const {clean, glitch} = vQ.shift();
+  const u = new SpeechSynthesisUtterance(clean);
+  u.rate = glitch ? 0.76 : 0.84;
+  u.pitch = glitch ? 0.32 : 0.44;
+  u.volume = 0.92;
+  const vs = speechSynthesis.getVoices();
+  const prefs = ['google uk english female','zira','microsoft zira','karen','moira','samantha','victoria'];
+  for (const p of prefs) {
+    const v = vs.find(v=>v.name.toLowerCase().includes(p));
+    if (v) { u.voice=v; break; }
+  }
+  u.onend = ()=>setTimeout(drainVoice, glitch?300:160);
+  u.onerror = ()=>setTimeout(drainVoice, 160);
+  speechSynthesis.speak(u);
+}
+
+if (window.speechSynthesis) {
+  speechSynthesis.onvoiceschanged = ()=>speechSynthesis.getVoices();
+  speechSynthesis.getVoices();
+}
+
+// ═══════════════════════════════════════
+// TYPEWRITER
+// ═══════════════════════════════════════
+const feed = document.getElementById('feed');
+const W8 = ms => new Promise(r=>setTimeout(r,ms));
+
+function addLine(text, cls='') {
+  const d = document.createElement('div');
+  d.className = 'line'+(cls?' '+cls:'');
+  d.textContent = text;
+  feed.appendChild(d);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function typeLine(text, cls='', doSpeak=false, glitch=false) {
+  return new Promise(res => {
+    if (doSpeak) speakText(text, glitch);
+    const d = document.createElement('div');
+    d.className = 'line'+(cls?' '+cls:'');
+    const cur = document.createElement('span');
+    cur.className='cursor';
+    feed.appendChild(d);
+    let i=0;
+    const base = glitch?22:13, rnd=glitch?30:16;
+    (function step(){
+      i++;
+      d.textContent = text.slice(0,i);
+      d.appendChild(cur);
+      feed.scrollTop = feed.scrollHeight;
+      if (i<text.length) {
+        const pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
+        setTimeout(step, pause);
+      } else { cur.remove(); res(); }
+    })();
+  });
+}
+
+async function playSeq(items, cls='aria', pause=360) {
+  for (const item of items) {
+    const text = typeof item==='string' ? item : item.t;
+    const sp = typeof item==='string' ? true : item.sp!==false;
+    const gl = typeof item==='object' && item.gl===true;
+    await typeLine(text, gl?'glitch':cls, sp, gl);
+    await W8(pause+(gl?200:0));
+  }
+}
+
+async function playLog(items, label) {
+  addLine('> ▶ PLAYING AUDIO LOG — '+label, 'sys');
+  await W8(600);
+  for (const item of items) {
+    await typeLine(item.t, 'glitch', item.sp!==false, true);
+    await W8(440);
+  }
+  addLine('> LOG END', 'sys');
+  await W8(300);
+}
+
+// ═══════════════════════════════════════
+// GPS
+// ═══════════════════════════════════════
+const gpsBadge = document.getElementById('gpsBadge');
+const locDot = document.getElementById('locDot');
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(
+    pos => {
+      const la=pos.coords.latitude.toFixed(5), lo=pos.coords.longitude.toFixed(5), ac=Math.round(pos.coords.accuracy);
+      gpsBadge.textContent = `◈ ${la}°N  ${lo}°W  ±${ac}m`;
+      gpsBadge.className='badge gps live';
+      locDot.className='loc-dot live';
+    },
+    () => {
+      gpsBadge.textContent='◈ POSITION SIGNAL LOST';
+      gpsBadge.className='badge gps';
+      locDot.className='loc-dot';
+    },
+    {enableHighAccuracy:true, timeout:20000, maximumAge:5000}
+  );
+}
+
+// ═══════════════════════════════════════
+// GAMEPAD
+// ═══════════════════════════════════════
+const padBadge = document.getElementById('padBadge');
+window.addEventListener('gamepadconnected', ()=>{ padBadge.style.display='block'; });
+window.addEventListener('gamepaddisconnected', ()=>{ padBadge.style.display='none'; });
+
+// ═══════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════
+async function boot() {
+  const saved = loadState();
+  if (saved && saved.stage > 0) {
+    stage = saved.stage;
+    sigPct = saved.sigPct || 71;
+    freeIdx = saved.freeIdx || {};
+    setSig(sigPct);
+    await W8(300);
+    addLine('> ARIA MK-IV // SESSION RESTORED', 'sys');
+    await W8(500);
+    addLine('> reconnecting to last channel ...', 'sys');
+    await W8(700);
+    if (saved.lastLine) addLine(saved.lastLine, 'aria');
+    addLine('> channel live. continue, NOVA-7.', 'sys');
+    enableInput();
+    document.getElementById('resetArea').style.display='flex';
+    return;
+  }
+
+  await W8(400);
+  addLine('> ARIA MK-IV TERMINAL // BOOT SEQUENCE', 'sys');
+  await W8(350);
+  addLine('> establishing encrypted channel ...', 'sys');
+  await W8(800);
+  addLine('> handshake confirmed', 'sys');
+  await W8(300);
+  addLine(ART.signal, 'ascii');
+  await W8(700);
+  addLine('// CHAPTER 01 — FIRST CONTACT', 'chapter');
+  await W8(200);
+  await playSeq(SCRIPT.boot, 'aria', 360);
+  addLine('> GROUND UNIT 7 ACTIVE', 'sys');
+  addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');
+  stage=1;
+  const lastLine = SCRIPT.boot[SCRIPT.boot.length-1].t;
+  saveState({lastLine});
+  enableInput();
+  document.getElementById('resetArea').style.display='flex';
+}
+
+// ═══════════════════════════════════════
+// INPUT
+// ═══════════════════════════════════════
+function enableInput() {
+  const inp = document.getElementById('inp');
+  const btn = document.getElementById('sendBtn');
+  inp.disabled = false;
+  btn.disabled = false;
+  inp.style.opacity = '1';
+  btn.style.opacity = '1';
+  inp.focus();
+}
+function disableInput() {
+  const inp = document.getElementById('inp');
+  const btn = document.getElementById('sendBtn');
+  inp.disabled = true;
+  btn.disabled = true;
+  inp.style.opacity = '0.35';
+  btn.style.opacity = '0.3';
+}
+
+async function submit() {
+  const inp = document.getElementById('inp');
+  const raw = inp.value.trim();
+  if (!raw || busy) return;
+  inp.value='';
+  busy=true;
+  disableInput();
+  const val = raw.toUpperCase();
+  addLine(raw, 'me');
+
+  // SECTOR 7
+  if (stage===1 && val===CODES.S7) {
+    setSig(63);
+    addLine('// CHAPTER 02 — THE MONUMENT', 'chapter');
+    addLine(ART.rocket, 'ascii');
+    await W8(500);
+    await playSeq(SCRIPT.s7_confirm, 'aria', 360);
+    addLine('> RECOGNITION PHRASE: "I\'m here to collect for NOVA-7"', 'sys');
+    addLine('> WAYPOINT: RESUPPLY DEPOT — ARAPAHOE', 'sys');
+    stage=2;
+    const lastLine=SCRIPT.s7_confirm[SCRIPT.s7_confirm.length-1].t;
+    saveState({lastLine});
+    busy=false; enableInput(); return;
+  }
+
+  // DEPOT
+  if (stage===2 && val===CODES.DEPOT) {
+    setSig(50);
+    addLine('// CHAPTER 03 — RESUPPLY', 'chapter');
+    await W8(200);
+    await playSeq(SCRIPT.depot_confirm, 'aria', 360);
+    addLine('> WAYPOINT: THE OUTPOST — NCAR MESA LAB', 'sys');
+    stage=3;
+    const lastLine=SCRIPT.depot_confirm[SCRIPT.depot_confirm.length-1].t;
+    saveState({lastLine});
+    busy=false; enableInput(); return;
+  }
+
+  // OUTPOST
+  if (stage===3 && val===CODES.OUTPOST) {
+    setSig(36);
+    addLine('// CHAPTER 04 — THE OUTPOST', 'chapter');
+    addLine(ART.outpost, 'ascii');
+    await W8(400);
+    await playSeq(SCRIPT.outpost_pre, 'aria', 340);
+    await W8(300);
+    await playLog(SCRIPT.outpost_log, 'ARIA FIELD RECORD 0044 — CORRUPTED');
+    await playSeq(SCRIPT.outpost_post, 'aria', 360);
+    addLine('> CONNECT CONTROLLER — TYPE FLY TO BEGIN APPROACH', 'sys');
+    stage=4;
+    const lastLine=SCRIPT.outpost_post[SCRIPT.outpost_post.length-1].t;
+    saveState({lastLine});
+    busy=false; enableInput(); return;
+  }
+
+  // FLY
+  if (stage===4 && val==='FLY') {
+    addLine('// CHAPTER 05 — FIELD APPROACH', 'chapter');
+    await playSeq(SCRIPT.fly_pre, 'aria', 340);
+    await W8(300);
+    stage=5;
+    saveState({lastLine:SCRIPT.fly_pre[SCRIPT.fly_pre.length-1].t});
+    startGame();
+    // input stays disabled during game
+    busy=false; return;
+  }
+
+  // CONTINUES
+  if (stage===4 && val===CODES.CONTINUES) {
+    addLine('> continues verified. type FLY to retry approach.', 'sys');
+    busy=false; enableInput(); return;
+  }
+
+  // RECOVERY
+  if (stage===6) {
+    const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE'];
+    if (triggers.some(t=>val.includes(t))) {
+      setSig(8);
+      addLine('// CHAPTER 07 — MISSION COMPLETE', 'chapter');
+      addLine(ART.suit, 'ascii');
+      await W8(500);
+      await playSeq(SCRIPT.recovery_pre, 'aria', 340);
+      await W8(300);
+      await playLog(SCRIPT.final_log, 'AURORA HELIOPAUSE RECORD — 2031');
+      await W8(400);
+      await playSeq(SCRIPT.recovery_post, 'aria', 400);
+      addLine('> ARIA // SIGNAL TERMINATED', 'sys');
+      addLine('> SESSION CLOSED', 'sys');
+      stage=7;
+      saveState({lastLine:'signal terminated'});
+      busy=false; enableInput(); return;
+    }
+  }
+
+  // FREE TEXT
+  let resp='';
+  if (stage===1) resp=getFree(SCRIPT.s7_free,'s7');
+  else if (stage===2) resp=getFree(SCRIPT.depot_free,'depot');
+  else if (stage===3) resp=getFree(SCRIPT.outpost_free,'outpost');
+  else if (stage===4) resp=getFree(SCRIPT.free4,'f4');
+  else if (stage===6) resp=getFree(SCRIPT.free6,'f6');
+  else if (stage===7) resp='> ARIA // SIGNAL TERMINATED';
+  else resp='I am still here, NOVA-7. Keep moving.';
+
+  await typeLine(resp, 'aria', true, false);
+  saveState({});
+  busy=false; enableInput();
+}
+
+document.getElementById('inp').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+
+// ═══════════════════════════════════════
+// RESET
+// ═══════════════════════════════════════
+function resetClick() {
+  document.getElementById('resetConfirm').style.display='inline';
+  document.querySelector('.reset-area .reset-btn').style.display='none';
+}
+function resetConfirm() {
+  clearSave();
+  location.reload();
+}
+function resetCancel() {
+  document.getElementById('resetConfirm').style.display='none';
+  document.querySelector('.reset-area .reset-btn').style.display='inline';
+}
+
+// ═══════════════════════════════════════
+// DEBRIS NAVIGATION GAME
+// ═══════════════════════════════════════
+function startGame() {
+  const wrap = document.getElementById('gameWrap');
+  const cv = document.getElementById('gameCanvas');
+  wrap.classList.add('active');
+  const W = cv.width = wrap.clientWidth-2;
+  const H = cv.height = Math.min(240, Math.round(W*0.36));
+  const ctx = cv.getContext('2d');
+
+  const KEYS={};
+  const onDown=e=>{KEYS[e.key]=true;if(e.key===' ')e.preventDefault()};
+  const onUp=e=>{KEYS[e.key]=false};
+  window.addEventListener('keydown',onDown,{passive:false});
+  window.addEventListener('keyup',onUp);
+
+  let lastTX=null;
+  cv.addEventListener('touchstart',e=>{lastTX=e.touches[0].clientX},{passive:true});
+  cv.addEventListener('touchmove',e=>{
+    if(lastTX===null)return;
+    const dx=e.touches[0].clientX-lastTX;
+    KEYS['ArrowLeft']=dx<-8; KEYS['ArrowRight']=dx>8;
+  },{passive:true});
+  cv.addEventListener('touchend',()=>{KEYS['ArrowLeft']=false;KEYS['ArrowRight']=false;lastTX=null;});
+
+  function readPad(){
+    try{
+      const pads=navigator.getGamepads?navigator.getGamepads():[];
+      for(const p of pads){
+        if(!p)continue;
+        KEYS['ArrowLeft']=KEYS['ArrowLeft']||p.axes[0]<-0.3||!!p.buttons[14]?.pressed;
+        KEYS['ArrowRight']=KEYS['ArrowRight']||p.axes[0]>0.3||!!p.buttons[15]?.pressed;
+      }
+    }catch(e){}
+  }
+
+  const SECTORS=3;
+  const SECTOR_LABELS=['DEBRIS FIELD ALPHA','WRECKAGE CORRIDOR','FINAL APPROACH'];
+  let sector=0, sectorProg=0, sectorLen=480;
+  let lives=3, tick=0, done=false;
+  let shipX=W/2, shipVX=0, invincible=0;
+  let debris=[], particles=[], warnings=[];
+  const STARS=Array.from({length:60},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.4+Math.random()*0.8,s:Math.random()}));
+  let raf;
+
+  function spawnDebris(){
+    const speed=1.6+sector*0.8+Math.random()*1.1;
+    const size=7+Math.random()*16;
+    debris.push({
+      x:20+Math.random()*(W-40),y:-size,
+      vy:speed,vx:(Math.random()-.5)*1.1,
+      size,type:Math.random()<0.28?'large':'small',
+      rot:Math.random()*Math.PI*2,rotV:(Math.random()-.5)*0.08,
+      warned:false,
+    });
+  }
+
+  function ptcl(x,y,col,n=10){
+    for(let i=0;i<n;i++)
+      particles.push({x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6,life:24,col});
+  }
+
+  function cleanup(){
+    window.removeEventListener('keydown',onDown);
+    window.removeEventListener('keyup',onUp);
+    cancelAnimationFrame(raf);
+  }
+
+  async function endGame(won){
+    if(done)return; done=true;
+    cleanup();
+    wrap.classList.remove('active');
+    if(won){
+      setSig(18);
+      addLine('// CHAPTER 06 — APPROACH COMPLETE','chapter');
+      await W8(400);
+      await playSeq(SCRIPT.win_pre,'aria',340);
+      await W8(300);
+      await playLog(SCRIPT.cinder_log,'CINDER FIELD RECORD 0001 — PARTIAL');
+      await W8(400);
+      const coordLine='CACHE REFERENCE: '+FINAL;
+      await typeLine(coordLine,'hilite',true,false);
+      await W8(300);
+      await playSeq(SCRIPT.win_post,'aria',340);
+      addLine(ART.lake,'ascii');
+      addLine('> WAYPOINT: WONDERLAND LAKE — NORTH SHORE','sys');
+      stage=6;
+      saveState({lastLine:SCRIPT.win_post[0].t});
+      enableInput();
+    } else {
+      await playSeq(SCRIPT.lose,'aria',340);
+      stage=4;
+      saveState({lastLine:SCRIPT.lose[SCRIPT.lose.length-1].t});
+      enableInput();
+    }
+  }
+
+  function loop(){
+    if(done)return;
+    tick++;
+    readPad();
+
+    const left=KEYS['ArrowLeft']||KEYS['a'];
+    const right=KEYS['ArrowRight']||KEYS['d'];
+    shipVX+=(left?-2.2:right?2.2:0)+shipVX*-0.22;
+    shipVX=Math.max(-9,Math.min(9,shipVX));
+    shipX=Math.max(18,Math.min(W-18,shipX+shipVX));
+    if(invincible>0)invincible--;
+
+    sectorProg++;
+    if(sectorProg>=sectorLen){
+      sector++; sectorProg=0; debris=[];
+      if(sector>=SECTORS){endGame(true);return;}
+    }
+
+    const spawnRate=Math.max(16,50-sector*10-Math.floor(sectorProg/80));
+    if(tick%spawnRate===0)spawnDebris();
+
+    debris.forEach(d=>{
+      d.x+=d.vx; d.y+=d.vy; d.rot+=d.rotV;
+      if(!d.warned&&d.y>H*0.3&&Math.abs(d.x-shipX)<70){
+        d.warned=true; warnings.push({x:d.x,life:22});
+      }
+    });
+    debris=debris.filter(d=>d.y<H+30);
+
+    const sy=H-30;
+    if(invincible===0){
+      for(const d of debris){
+        if(Math.abs(d.x-shipX)<d.size*0.65&&Math.abs(d.y-sy)<d.size*0.65){
+          ptcl(shipX,sy,'#ff6b6b',14);
+          debris.splice(debris.indexOf(d),1);
+          lives--; invincible=90;
+          setSig(Math.max(8,36-sector*6-(3-lives)*5));
+          if(lives<=0){endGame(false);return;}
+          break;
+        }
+      }
+    }
+
+    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
+    particles=particles.filter(p=>p.life>0);
+    warnings.forEach(w=>w.life--);
+    warnings=warnings.filter(w=>w.life>0);
+    STARS.forEach(s=>{s.y+=s.vy*(1+sector*0.4);if(s.y>H)s.y=0;});
+
+    // DRAW
+    ctx.fillStyle='#010402';ctx.fillRect(0,0,W,H);
+
+    STARS.forEach(s=>{
+      ctx.fillStyle=`rgba(116,255,175,${0.1+s.s*0.25})`;
+      ctx.fillRect(s.x,s.y,s.s>0.7?2:1,s.s>0.7?2:1);
+    });
+
+    // progress bar
+    const prog=sectorProg/sectorLen;
+    ctx.fillStyle='#0d2b1c';ctx.fillRect(0,H-4,W,4);
+    ctx.fillStyle='#74ffaf';ctx.shadowColor='#74ffaf';ctx.shadowBlur=4;
+    ctx.fillRect(0,H-4,W*prog,4);
+    ctx.shadowBlur=0;
+
+    // debris
+    debris.forEach(d=>{
+      ctx.save();
+      ctx.translate(d.x,d.y);ctx.rotate(d.rot);
+      ctx.fillStyle=d.type==='large'?'#ffcf6b':'#74ffaf';
+      ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=5;
+      if(d.type==='large'){
+        ctx.fillRect(-d.size/2,-d.size/3,d.size,d.size*0.65);
+        ctx.fillRect(-d.size*0.2,-d.size/2,d.size*0.4,d.size);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0,-d.size/2);ctx.lineTo(d.size/2,d.size/2);ctx.lineTo(-d.size/2,d.size/2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    // warnings
+    warnings.forEach(w=>{
+      ctx.fillStyle=`rgba(255,107,107,${w.life/22})`;
+      ctx.fillRect(w.x-2,0,4,H*0.6);
+    });
+
+    // ship
+    ctx.shadowColor=invincible>0?'#ffcf6b':'#74ffaf';ctx.shadowBlur=12;
+    const showShip=invincible===0||(Math.floor(tick/6)%2===0);
+    if(showShip){
+      ctx.fillStyle=invincible>0?'#ffcf6b':'#74ffaf';
+      ctx.beginPath();
+      ctx.moveTo(shipX,sy-14);ctx.lineTo(shipX-12,sy+8);ctx.lineTo(shipX+12,sy+8);
+      ctx.fill();
+    }
+    if(tick%4<2){ctx.fillStyle='rgba(255,140,40,.8)';ctx.fillRect(shipX-4,sy+8,8,7);}
+
+    // particles
+    particles.forEach(p=>{
+      const a=Math.floor((p.life/24)*255).toString(16).padStart(2,'0');
+      ctx.fillStyle=p.col+a;ctx.shadowBlur=0;
+      ctx.fillRect(p.x-1.5,p.y-1.5,3,3);
+    });
+
+    // HUD
+    ctx.shadowBlur=0;ctx.fillStyle='#74ffaf';
+    const fs=Math.max(10,Math.round(H*0.058));
+    ctx.font=`${fs}px Courier New`;
+    ctx.textAlign='left';
+    ctx.fillText(`LIVES ${lives}   SECTOR ${sector+1}/${SECTORS}   ${Math.round(prog*100)}%`,8,Math.round(H*0.075));
+    ctx.fillStyle='rgba(116,255,175,0.3)';
+    ctx.font=`${Math.max(9,Math.round(H*0.05))}px Courier New`;
+    ctx.textAlign='right';
+    ctx.fillText(SECTOR_LABELS[sector]||'',W-8,Math.round(H*0.075));
+    ctx.textAlign='left';
+
+    raf=requestAnimationFrame(loop);
+  }
+
+  raf=requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════
+// LAUNCH
+// ═══════════════════════════════════════
+setSig(71);
+boot();
+</script>
+</body>
+</html>

@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#090d09;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Courier New',monospace}
-:root{--g:#74ffaf;--g2:#3aff8a;--gdim:#1a5c36;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b}
+:root{--g:#74ffaf;--g2:#3aff8a;--gdim:#4fcf8e;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b}
 
 .device{
   position:relative;width:min(800px,100vw);height:min(680px,100vh);
@@ -19,7 +19,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   display:flex;flex-direction:column;gap:8px;
 }
 .device-top{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
-.brand{font-size:9px;letter-spacing:3px;color:#1b2b1b;text-transform:uppercase}
+.brand{font-size:9px;letter-spacing:3px;color:#3c5c40;text-transform:uppercase}
 .leds{display:flex;gap:6px}
 .led{width:7px;height:7px;border-radius:50%;transition:all .5s}
 
@@ -34,6 +34,13 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
     radial-gradient(ellipse 44% 26% at 80% 92%,rgba(255,255,255,.015) 0%,transparent 46%),
     radial-gradient(ellipse 88% 88% at 50% 50%,transparent 50%,rgba(0,0,0,.4) 100%);
 }
+.crt-glare{
+  position:absolute;inset:0;z-index:22;pointer-events:none;border-radius:16px;
+  background:radial-gradient(ellipse 55% 38% at 86% 8%,rgba(255,255,255,.26) 0%,rgba(255,255,255,.08) 40%,transparent 68%);
+  mix-blend-mode:screen;
+  animation:glareDrift 14s ease-in-out infinite;
+}
+@keyframes glareDrift{0%,100%{opacity:.85;transform:translate(0,0)}50%{opacity:1;transform:translate(-2%,1.5%)}}
 .crt-scanlines{
   position:absolute;inset:0;z-index:19;pointer-events:none;border-radius:16px;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0,rgba(0,0,0,.18) 1px,transparent 1px,transparent 3px);
@@ -44,10 +51,10 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .hrow{
   display:flex;justify-content:space-between;align-items:center;
   font-size:10px;letter-spacing:2px;color:var(--gdim);
-  border-bottom:1px solid #0b2416;padding-bottom:6px;margin-bottom:6px;text-transform:uppercase;
+  border-bottom:1px solid #1f4a30;padding-bottom:6px;margin-bottom:6px;text-transform:uppercase;
 }
 .sig-pips{display:flex;gap:2px}
-.pip{width:5px;height:10px;background:#0d2416;border-radius:1px;transition:all .5s}
+.pip{width:5px;height:10px;background:#1a3d27;border-radius:1px;transition:all .5s}
 .pip.on{background:var(--g);box-shadow:0 0 5px var(--g)}
 
 .badge{
@@ -59,7 +66,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .badge.gps.live{color:var(--g);border-color:var(--g)}
 .badge.gps.warn{color:var(--amber);border-color:var(--amber)}
 .badge.pad{color:var(--g);border-color:var(--gdim);display:none}
-.badge.audio-prompt{color:var(--amber);border-color:var(--amber);cursor:pointer;text-align:center}
+.badge.waypoint{color:var(--amber);border-color:var(--amber);cursor:pointer;display:none;align-items:center;justify-content:space-between;gap:8px}
+.badge.waypoint:active{background:rgba(255,207,107,.14)}
 
 .feed{
   flex:1;overflow-y:auto;overflow-x:hidden;
@@ -74,7 +82,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .line.aria{color:var(--g);text-shadow:0 0 8px rgba(80,255,160,.3)}
 .line.glitch{color:#5adf8f;opacity:.88;text-shadow:0 0 12px rgba(80,255,160,.5);letter-spacing:.5px}
 .line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.78}
-.line.chapter{color:var(--g2);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #0c2818;padding-top:8px;margin-top:6px}
+.line.chapter{color:var(--g2);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px}
 .line.hilite{color:var(--amber);font-weight:bold;letter-spacing:1px;text-shadow:0 0 12px rgba(255,207,107,.65)}
 .line.warn{color:var(--red)}
 .cursor{display:inline-block;width:8px;height:13px;background:var(--g);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
@@ -85,9 +93,9 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 #gameCanvas{border:1px solid var(--gdim);display:block;width:100%;touch-action:none;box-shadow:0 0 16px rgba(80,255,150,.1)}
 .game-hint{font-size:10px;color:var(--gdim);letter-spacing:1px;text-align:center}
 
-.input-row{margin-top:7px;display:flex;gap:6px;border-top:1px solid #0b2416;padding-top:8px}
+.input-row{margin-top:7px;display:flex;gap:6px;border-top:1px solid #1f4a30;padding-top:8px}
 .input-row input{
-  flex:1;background:transparent;border:1px solid #162e20;color:var(--g);
+  flex:1;background:transparent;border:1px solid #1f4a30;color:var(--g);
   font-family:'Courier New',monospace;font-size:13px;padding:8px 10px;
   outline:none;letter-spacing:1px;border-radius:2px;transition:opacity .2s;
   -webkit-appearance:none;
@@ -112,9 +120,37 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .loc-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
 
 .reset-area{display:flex;gap:6px;align-items:center}
-.reset-btn{background:transparent;border:1px solid #2a1e1a;color:#3a2a22;font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px}
+.reset-btn{background:transparent;border:1px solid #4a3a2e;color:#7a5e48;font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px}
 .reset-btn.danger{color:var(--red);border-color:var(--red)}
 .reset-confirm{font-size:9px;color:var(--red);letter-spacing:1px}
+
+.intro-overlay{
+  position:absolute;inset:0;z-index:50;border-radius:16px;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 50%,#03130a 0%,#010402 80%);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .6s ease;
+}
+.intro-overlay.hidden{opacity:0;pointer-events:none}
+.intro-sweep{position:absolute;inset:-30%;overflow:hidden}
+.intro-sweep::before{
+  content:'';position:absolute;top:0;left:0;width:100%;height:100%;
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(116,255,175,.16) 16deg,transparent 38deg);
+  animation:introSweep 2.8s linear infinite;
+}
+@keyframes introSweep{to{transform:rotate(360deg)}}
+.intro-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:0 24px}
+.intro-art{font-size:13px;letter-spacing:6px;color:var(--g);text-shadow:0 0 16px rgba(116,255,175,.7);animation:introPulse 1.8s ease-in-out infinite}
+@keyframes introPulse{0%,100%{opacity:.55}50%{opacity:1}}
+.intro-sub{font-size:10px;letter-spacing:2px;color:var(--gdim);text-transform:uppercase;animation:introFlicker 2.4s steps(1) infinite}
+@keyframes introFlicker{0%,80%,100%{opacity:1}82%{opacity:.3}84%{opacity:1}}
+.intro-btn{
+  margin-top:8px;background:transparent;border:1px solid var(--amber);color:var(--amber);
+  font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;padding:10px 16px;
+  cursor:pointer;text-transform:uppercase;border-radius:2px;opacity:0;transition:opacity .5s;
+  -webkit-appearance:none;
+}
+.intro-btn.ready{opacity:1}
+.intro-btn:active{background:var(--amber);color:#1a1200}
 </style>
 </head>
 <body>
@@ -131,6 +167,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   <div class="crt-wrap">
     <div class="crt-glass"></div>
     <div class="crt-scanlines"></div>
+    <div class="crt-glare"></div>
     <div class="screen">
       <div class="hrow">
         <span>AURORA RECOVERY // NOVA-7</span>
@@ -148,7 +185,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
       <div class="badge gps warn" id="gpsBadge">◈ ACQUIRING POSITION ...</div>
       <div class="badge pad" id="padBadge">◈ CONTROLLER CONNECTED</div>
-      <div class="badge audio-prompt" id="audioPrompt" onclick="unlockAudio()">▶ TAP TO ACTIVATE AUDIO TRANSMISSION</div>
+      <div class="badge waypoint" id="waypointBadge" onclick="openCurrentWaypoint()"></div>
 
       <div class="feed" id="feed"></div>
 
@@ -160,6 +197,15 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       <div class="input-row">
         <input id="inp" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="transmit to ARIA..." disabled />
         <button class="send-btn" id="sendBtn" onclick="submit()" disabled>SEND</button>
+      </div>
+    </div>
+
+    <div class="intro-overlay" id="introOverlay">
+      <div class="intro-sweep"></div>
+      <div class="intro-content">
+        <div class="intro-art">))) ARIA (((</div>
+        <div class="intro-sub">SIGNAL ACQUISITION IN PROGRESS</div>
+        <button class="intro-btn" id="introBtn" onclick="beginTransmission()" disabled>▶ INITIATE AUDIO TRANSMISSION</button>
       </div>
     </div>
   </div>
@@ -412,7 +458,62 @@ function unlockAudio() {
   u.volume = 0;
   speechSynthesis.speak(u);
   audioUnlocked = true;
-  document.getElementById('audioPrompt').style.display = 'none';
+}
+
+// ═══════════════════════════════════════
+// TACTILE FEEDBACK — short tone + vibration
+// ═══════════════════════════════════════
+let actx = null;
+function initBlip() {
+  try { actx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
+}
+function blip(freq=720, dur=0.12) {
+  if (!actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.value = 0.05;
+    o.connect(g); g.connect(actx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime+dur);
+    o.stop(actx.currentTime+dur+0.02);
+  } catch(e){}
+}
+function pulse(ms=30) {
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch(e){}
+}
+
+// ═══════════════════════════════════════
+// WAYPOINT / MAPS LINK
+// ═══════════════════════════════════════
+const WAYPOINTS = {
+  s7:      {label:'SECTOR 7 — SCOTT CARPENTER PARK', query:'Scott Carpenter Park, 1505 30th St, Boulder, CO'},
+  // TODO: confirm exact OZO Coffee location on Arapahoe before mission day
+  depot:   {label:'RESUPPLY DEPOT — OZO COFFEE, ARAPAHOE', query:'Ozo Coffee, Arapahoe Ave, Boulder, CO'},
+  outpost: {label:'THE OUTPOST — NCAR MESA LAB', query:'NCAR Mesa Lab, 1850 Table Mesa Dr, Boulder, CO'},
+  field:   {label:'FIELD STATION — CHAUTAUQUA MEADOW', query:'Chautauqua Park, 900 Baseline Rd, Boulder, CO'},
+  lake:    {label:'CACHE SITE — WONDERLAND LAKE, NORTH SHORE', query:'Wonderland Lake Trailhead, Boulder, CO'},
+};
+const STAGE_WAYPOINT = {1:'s7', 2:'depot', 3:'outpost', 4:'field', 6:'lake'};
+let currentWaypoint = null;
+
+function setWaypoint(key) {
+  const badge = document.getElementById('waypointBadge');
+  const wp = WAYPOINTS[key];
+  if (!wp) {
+    currentWaypoint = null;
+    badge.style.display = 'none';
+    return;
+  }
+  currentWaypoint = wp;
+  badge.innerHTML = '◈ NEXT: '+wp.label+' <span style="opacity:.65">▸ MAPS</span>';
+  badge.style.display = 'flex';
+  blip(620, 0.08);
+}
+function openCurrentWaypoint() {
+  if (!currentWaypoint) return;
+  const url = 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(currentWaypoint.query);
+  window.open(url, '_blank', 'noopener');
 }
 
 function speakText(text, glitch=false) {
@@ -470,7 +571,7 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
     cur.className='cursor';
     feed.appendChild(d);
     let i=0;
-    const base = glitch?22:13, rnd=glitch?30:16;
+    const base = glitch?78:58, rnd=glitch?46:34;
     (function step(){
       i++;
       d.textContent = text.slice(0,i);
@@ -545,6 +646,7 @@ async function boot() {
     sigPct = saved.sigPct || 71;
     freeIdx = saved.freeIdx || {};
     setSig(sigPct);
+    if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
     await W8(300);
     addLine('> ARIA MK-IV // SESSION RESTORED', 'sys');
     await W8(500);
@@ -572,11 +674,30 @@ async function boot() {
   addLine('> GROUND UNIT 7 ACTIVE', 'sys');
   addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');
   stage=1;
+  setWaypoint('s7');
   const lastLine = SCRIPT.boot[SCRIPT.boot.length-1].t;
   saveState({lastLine});
   enableInput();
   document.getElementById('resetArea').style.display='flex';
 }
+
+// ═══════════════════════════════════════
+// INTRO GATE
+// ═══════════════════════════════════════
+function beginTransmission() {
+  unlockAudio();
+  initBlip();
+  blip(880, 0.15);
+  const overlay = document.getElementById('introOverlay');
+  overlay.classList.add('hidden');
+  setTimeout(()=>overlay.remove(), 650);
+  boot();
+}
+setTimeout(()=>{
+  const btn = document.getElementById('introBtn');
+  btn.disabled = false;
+  btn.classList.add('ready');
+}, 1800);
 
 // ═══════════════════════════════════════
 // INPUT
@@ -612,6 +733,7 @@ async function submit() {
   // SECTOR 7
   if (stage===1 && val===CODES.S7) {
     setSig(63);
+    blip(880,0.15); pulse(30);
     addLine('// CHAPTER 02 — THE MONUMENT', 'chapter');
     addLine(ART.rocket, 'ascii');
     await W8(500);
@@ -619,6 +741,7 @@ async function submit() {
     addLine('> RECOGNITION PHRASE: "I\'m here to collect for NOVA-7"', 'sys');
     addLine('> WAYPOINT: RESUPPLY DEPOT — ARAPAHOE', 'sys');
     stage=2;
+    setWaypoint('depot');
     const lastLine=SCRIPT.s7_confirm[SCRIPT.s7_confirm.length-1].t;
     saveState({lastLine});
     busy=false; enableInput(); return;
@@ -627,11 +750,13 @@ async function submit() {
   // DEPOT
   if (stage===2 && val===CODES.DEPOT) {
     setSig(50);
+    blip(880,0.15); pulse(30);
     addLine('// CHAPTER 03 — RESUPPLY', 'chapter');
     await W8(200);
     await playSeq(SCRIPT.depot_confirm, 'aria', 360);
     addLine('> WAYPOINT: THE OUTPOST — NCAR MESA LAB', 'sys');
     stage=3;
+    setWaypoint('outpost');
     const lastLine=SCRIPT.depot_confirm[SCRIPT.depot_confirm.length-1].t;
     saveState({lastLine});
     busy=false; enableInput(); return;
@@ -640,6 +765,7 @@ async function submit() {
   // OUTPOST
   if (stage===3 && val===CODES.OUTPOST) {
     setSig(36);
+    blip(880,0.15); pulse(30);
     addLine('// CHAPTER 04 — THE OUTPOST', 'chapter');
     addLine(ART.outpost, 'ascii');
     await W8(400);
@@ -649,6 +775,7 @@ async function submit() {
     await playSeq(SCRIPT.outpost_post, 'aria', 360);
     addLine('> CONNECT CONTROLLER — TYPE FLY TO BEGIN APPROACH', 'sys');
     stage=4;
+    setWaypoint('field');
     const lastLine=SCRIPT.outpost_post[SCRIPT.outpost_post.length-1].t;
     saveState({lastLine});
     busy=false; enableInput(); return;
@@ -677,6 +804,7 @@ async function submit() {
     const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE'];
     if (triggers.some(t=>val.includes(t))) {
       setSig(8);
+      blip(1200,0.25); pulse([40,60,40]);
       addLine('// CHAPTER 07 — MISSION COMPLETE', 'chapter');
       addLine(ART.suit, 'ascii');
       await W8(500);
@@ -688,6 +816,7 @@ async function submit() {
       addLine('> ARIA // SIGNAL TERMINATED', 'sys');
       addLine('> SESSION CLOSED', 'sys');
       stage=7;
+      setWaypoint(null);
       saveState({lastLine:'signal terminated'});
       busy=false; enableInput(); return;
     }
@@ -814,6 +943,7 @@ function startGame() {
       addLine(ART.lake,'ascii');
       addLine('> WAYPOINT: WONDERLAND LAKE — NORTH SHORE','sys');
       stage=6;
+      setWaypoint('lake');
       saveState({lastLine:SCRIPT.win_post[0].t});
       enableInput();
     } else {
@@ -951,7 +1081,6 @@ function startGame() {
 // LAUNCH
 // ═══════════════════════════════════════
 setSig(71);
-boot();
 </script>
 </body>
 </html>

@@ -652,7 +652,10 @@ function getFree(pool, key) {
 // ═══════════════════════════════════════
 function saveState(extra={}) {
   try {
-    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, ...extra}));
+    const feedLines = Array.from(feed.children)
+      .slice(-200)
+      .map(d=>({t:d.textContent, c:d.className.replace(/^line\s*/,'').trim()}));
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, ...extra}));
   } catch(e){}
 }
 function loadState() {
@@ -932,12 +935,12 @@ async function boot() {
     freeIdx = saved.freeIdx || {};
     setSig(sigPct);
     if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
-    await W8(300);
-    addLine('> ARIA MK-IV // SESSION RESTORED', 'sys');
-    await W8(500);
-    addLine('> reconnecting to last channel ...', 'sys');
-    await W8(700);
-    if (saved.lastLine) addLine(saved.lastLine, 'aria');
+    if (saved.feedLines && saved.feedLines.length) {
+      saved.feedLines.forEach(({t,c})=>addLine(t,c||''));
+    }
+    await W8(200);
+    addLine('> SIGNAL REACQUIRED — CONTINUING SESSION', 'sys');
+    await W8(400);
     addLine('> channel live. continue, NOVA-7.', 'sys');
     enableInput();
     document.getElementById('resetArea').style.display='flex';
@@ -1182,6 +1185,7 @@ async function submit() {
   if (stage===6) {
     const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE'];
     if (triggers.some(t=>val.includes(t))) {
+      busy=false; // triggerRecovery manages its own busy state
       await triggerRecovery();
       return;
     }

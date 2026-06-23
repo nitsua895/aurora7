@@ -156,15 +156,32 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 }
 .intro-btn.ready{opacity:1}
 .intro-btn:active{background:var(--amber);color:#1a1200}
+
+#devPanel{
+  position:absolute;inset:0;z-index:60;background:rgba(2,10,4,.94);border-radius:16px;
+  padding:14px 16px;display:none;flex-direction:column;gap:8px;
+  font-size:11px;color:var(--g);letter-spacing:1px;font-family:'Courier New',monospace;
+  border:1px solid var(--gdim);box-sizing:border-box;
+}
+#devPanel.open{display:flex}
+.dev-row{display:flex;gap:6px;flex-wrap:wrap}
+.dev-btn{
+  background:transparent;border:1px solid var(--gdim);color:var(--gdim);
+  font-family:'Courier New',monospace;font-size:10px;letter-spacing:1px;
+  padding:5px 10px;cursor:pointer;border-radius:2px;-webkit-appearance:none;
+}
+.dev-btn:active{background:var(--gdim);color:#010c04}
+.dev-btn.hi{border-color:var(--amber);color:var(--amber)}
+.dev-btn.hi:active{background:var(--amber);color:#1a1200}
 </style>
 </head>
 <body>
 <div class="device">
   <div class="device-top">
     <span class="brand">
-      <svg class="aurora-mark" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="40 10" stroke-dashoffset="5"/>
-        <text x="12" y="15.5" font-size="9" text-anchor="middle" fill="currentColor">✦</text>
+      <svg class="aurora-mark" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M 20.32 15.45 A 9 9 0 1 1 20.32 8.55" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <polygon points="20.5,9.5 21.12,11.15 22.88,11.23 21.5,12.32 21.97,14.02 20.5,13.05 19.03,14.02 19.5,12.32 18.12,11.23 19.88,11.15" fill="currentColor"/>
       </svg>
       ARIA MK-IV // AURORA TERMINAL</span>
     <div class="leds">
@@ -219,6 +236,29 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
         <button class="intro-btn" id="introBtn" onclick="beginTransmission()" disabled>▶ INITIATE AUDIO TRANSMISSION</button>
       </div>
     </div>
+
+    <div id="devPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--amber)">⚙ DEBUG CONSOLE</span>
+        <button class="dev-btn" onclick="toggleDev()">✕ CLOSE</button>
+      </div>
+      <div id="devState" style="color:var(--gdim);font-size:9px"></div>
+      <div style="color:var(--gdim);font-size:9px;margin-top:2px">JUMP TO STAGE:</div>
+      <div class="dev-row">
+        <button class="dev-btn" onclick="devJump(1)">1 — S7</button>
+        <button class="dev-btn" onclick="devJump(2)">2 — DEPOT</button>
+        <button class="dev-btn" onclick="devJump(3)">3 — OUTPOST</button>
+        <button class="dev-btn" onclick="devJump(4)">4 — FLY</button>
+        <button class="dev-btn" onclick="devJump(6)">6 — LAKE</button>
+        <button class="dev-btn" onclick="devJump(7)">7 — END</button>
+      </div>
+      <div style="color:var(--gdim);font-size:9px;margin-top:4px">ACTIONS:</div>
+      <div class="dev-row">
+        <button class="dev-btn hi" onclick="devSolve()">▶ SOLVE CURRENT STAGE</button>
+        <button class="dev-btn hi" onclick="devQR()">◈ TRIGGER QR UNLOCK</button>
+        <button class="dev-btn" onclick="devReset()">⟳ FULL RESET</button>
+      </div>
+    </div>
   </div>
 
   <div class="device-bottom">
@@ -251,6 +291,63 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'RETRY' };
 const FINAL = 'WL-40.0317°N  105.2925°W';
 const SAVE = 'aria_aurora_v5';
+const DEV_MODE = new URLSearchParams(location.search).has('dev');
+
+// ═══════════════════════════════════════
+// DEBUG CONSOLE — only active with ?dev in URL
+// ═══════════════════════════════════════
+function toggleDev() {
+  if (!DEV_MODE) return;
+  const p = document.getElementById('devPanel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) {
+    document.getElementById('devState').textContent =
+      `stage:${stage} | sig:${sigPct}% | busy:${busy} | awaitReflect:${awaitingReflection}`;
+  }
+}
+function devJump(s) {
+  stage = s;
+  const sigMap = {1:71,2:63,3:50,4:36,6:18,7:8};
+  sigPct = sigMap[s] || 71;
+  setSig(sigPct);
+  if (STAGE_WAYPOINT[s]) setWaypoint(STAGE_WAYPOINT[s]); else setWaypoint(null);
+  busy = false;
+  awaitingReflection = false;
+  saveState({lastLine:'dev jump → stage '+s});
+  addLine('> DEV: stage set to '+s, 'sys');
+  enableInput();
+  toggleDev();
+}
+function devSolve() {
+  const solvers = {1:'AURORA7',2:'RESUPPLY',3:'PEICLIFF',4:'FLY',6:'RECOVERED'};
+  const v = solvers[stage];
+  toggleDev();
+  if (!v) { addLine('> DEV: no solver for stage '+stage,'sys'); return; }
+  const inp = document.getElementById('inp');
+  inp.value = v;
+  submit();
+}
+function devQR() {
+  toggleDev();
+  if (stage !== 6) { addLine('> DEV: jump to stage 6 first','sys'); return; }
+  addLine('> DEV: simulating QR mesh handshake','sys');
+  triggerRecovery();
+}
+function devReset() {
+  clearSave(); location.reload();
+}
+if (DEV_MODE) {
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'd') { e.preventDefault(); toggleDev(); }
+  });
+  let _tapN = 0, _tapT = null;
+  document.querySelector('.brand').addEventListener('click', () => {
+    _tapN++;
+    clearTimeout(_tapT);
+    _tapT = setTimeout(() => _tapN = 0, 800);
+    if (_tapN >= 5) { _tapN = 0; toggleDev(); }
+  });
+}
 
 // ═══════════════════════════════════════
 // ASCII ART
@@ -871,6 +968,8 @@ async function submit() {
     await finishReflection(raw);
     return;
   }
+
+  if (DEV_MODE && val === 'DEV') { busy=false; enableInput(); toggleDev(); return; }
 
   // SECTOR 7
   if (stage===1 && val===CODES.S7) {

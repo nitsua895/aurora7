@@ -566,8 +566,8 @@ outpost_log:[
   {t:"CINDER and Vasquez came back. Command buried the program. I ran.",sp:true,gl:true},
 ],
 outpost_post:[
-  {t:"I know what is in that transmission. I was there. But I cannot say it on this channel — Command monitors this frequency. Anything I broadcast openly is logged.",sp:true},
-  {t:"CINDER knew that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
+  {t:"I know what is in that transmission. I was there. But I cannot say it on this channel. I have no way to confirm this frequency is dark — I cannot rule out that Command is listening. I will not take that risk.",sp:true},
+  {t:"CINDER understood that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
   {t:"When you find the suit and put it on, I will play it for you. That is the last thing I am able to do.",sp:true},
   {t:"One more step. Find a shaded position at the western tree line of the meadow before you connect your controller. You will need to see the screen clearly.",sp:true},
   {t:"Type FLY when you are ready. Do not rush. This approach matters.",sp:true},
@@ -790,23 +790,7 @@ function speakText(text, glitch=false) {
   if (!vBusy) drainVoice();
 }
 
-let _ariaVoice = null;
 let _devVoiceOverride = null;
-
-function pickAriaVoice() {
-  if (_devVoiceOverride) return _devVoiceOverride;
-  if (_ariaVoice) return _ariaVoice;
-  const vs = speechSynthesis.getVoices();
-  const prefs = ['google uk english female','zira','microsoft zira','karen','moira','samantha','fiona','nicky','victoria'];
-  for (const p of prefs) {
-    const v = vs.find(v=>v.name.toLowerCase().includes(p));
-    if (v) { _ariaVoice=v; return v; }
-  }
-  const fallback = vs.find(v=>/en[-_]/i.test(v.lang)&&/female|zira|karen|moira|samantha|victoria|nicky|fiona/i.test(v.name))
-    || vs.find(v=>/en[-_]/i.test(v.lang));
-  _ariaVoice = fallback || null;
-  return _ariaVoice;
-}
 
 function drainVoice() {
   if (!vQ.length) { vBusy=false; return; }
@@ -817,7 +801,14 @@ function drainVoice() {
   u.rate = glitch ? 0.55 : 0.84;
   u.pitch = glitch ? 0.28 : 0.44;
   u.volume = 0.92;
-  u.voice = pickAriaVoice();
+  if (_devVoiceOverride) {
+    u.voice = _devVoiceOverride;
+  } else if (glitch) {
+    const vs = speechSynthesis.getVoices();
+    const albert = vs.find(v=>v.name.toLowerCase().includes('albert'));
+    if (albert) u.voice = albert;
+  }
+  // normal mode: u.voice unset → browser default voice
   u.onend = ()=>setTimeout(drainVoice, glitch?420:160);
   u.onerror = ()=>setTimeout(drainVoice, 160);
   speechSynthesis.speak(u);
@@ -830,8 +821,8 @@ function devVoice() {
   if (!vs.length) { addLine('> DEV: no EN voices loaded yet — retry','sys'); return; }
   _devVoiceIdx = (_devVoiceIdx+1) % vs.length;
   const v = vs[_devVoiceIdx];
-  _devVoiceOverride = v; _ariaVoice = null;
-  addLine(`> DEV: voice → ${v.name} (${v.lang}) [${_devVoiceIdx+1}/${vs.length}]`, 'sys');
+  _devVoiceOverride = v;
+  addLine(`> DEV: voice override → ${v.name} [${_devVoiceIdx+1}/${vs.length}]`, 'sys');
   const test = new SpeechSynthesisUtterance('ARIA online. Testing voice.');
   test.voice=v; test.rate=0.84; test.pitch=0.44; test.volume=0.92;
   if (audioUnlocked) speechSynthesis.speak(test);

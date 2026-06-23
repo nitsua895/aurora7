@@ -301,7 +301,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       <div style="color:var(--gdim);font-size:9px;margin-top:4px">ACTIONS:</div>
       <div class="dev-row">
         <button class="dev-btn hi" onclick="devSolve()">▶ SOLVE CURRENT STAGE</button>
-        <button class="dev-btn hi" onclick="devQR()">◈ TRIGGER QR UNLOCK</button>
+        <button class="dev-btn hi" onclick="devQR()">◈ PLAY FINAL SEQUENCE</button>
+        <button class="dev-btn" onclick="devVoice()">♪ CYCLE VOICE</button>
         <button class="dev-btn" onclick="devReset()">⟳ FULL RESET</button>
       </div>
     </div>
@@ -343,11 +344,11 @@ const DEV_MODE = new URLSearchParams(location.search).has('dev');
 // ON-SITE HELP — triggered when Trevor says he's lost
 // ═══════════════════════════════════════
 const HELP_HINTS = {
-  1: "Scott Carpenter Park. The cipher is at the monument itself — look near the top of the main marker, not the surrounding path. Get close. It will be on the face of the structure.",
-  2: "You are in the right place. Go to the counter. Say this exactly: \"I'm here to collect for NOVA-7.\" They are expecting you. Do not overthink it.",
-  3: "NCAR Mesa Lab on Table Mesa Drive. The cipher is embedded in a panel near the main entrance. It looks like signal noise. It is not. Step back. Let your eyes find the pattern in what looks like static.",
-  4: "Chautauqua Meadow. Walk toward the western tree line — where the meadow meets the first trees on the left side looking at the Flatirons. Find shade. Make sure you can read the screen clearly. Then type FLY.",
-  6: "Wonderland Lake, north shore. Take the path that runs along the water. Walk the north side. Look for a marker near the tree line. When you have the suit, put it on. Then just tell me.",
+  1: "Scott Carpenter launched in 1962. Three orbits. His capsule was named after an atmospheric phenomenon and given a number. The park is named for him. The cipher is named for his mission. Look at what surrounds you — the answer is already part of where you are standing.",
+  2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
+  3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces.",
+  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the western edge of the meadow where the trees start. Find shade. When your screen is clear, type FLY. That is the only instruction.",
+  6: "The cache is at the north shore. Walk the path that runs along the water. Walk until the lake curves north. The suit is near the water's edge. When you have it on, come back and tell me. I will hear you.",
 };
 function isHelpPhrase(val) {
   return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT"].some(t=>val.includes(t));
@@ -422,10 +423,19 @@ function devSolve() {
   submit();
 }
 function devQR() {
-  toggleDev();
-  if (stage !== 6) { addLine('> DEV: jump to stage 6 first','sys'); return; }
-  addLine('> DEV: simulating QR mesh handshake','sys');
-  triggerRecovery();
+  document.getElementById('devPanel').classList.remove('open');
+  if (!actx) initBlip();
+  if (stage !== 6) {
+    stage=6; sigPct=18; setSig(18); setWaypoint('lake');
+    busy=false; awaitingReflection=false;
+    saveState({lastLine:'dev QR test'}); enableInput();
+    addLine('> DEV: jumped to stage 6','sys');
+  }
+  busy = false;
+  setTimeout(()=>{
+    addLine('> DEV: simulating mesh handshake','sys');
+    triggerRecovery();
+  }, 150);
 }
 function devReset() {
   clearSave(); localStorage.removeItem('aria_auth'); location.reload();
@@ -702,6 +712,21 @@ function blip(freq=720, dur=0.12) {
 function pulse(ms=30) {
   try { if (navigator.vibrate) navigator.vibrate(ms); } catch(e){}
 }
+function playStatic(ms=250) {
+  if (!actx) return;
+  try {
+    const dur=ms/1000;
+    const buf=actx.createBuffer(1,Math.ceil(actx.sampleRate*dur),actx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*0.14;
+    const src=actx.createBufferSource(); src.buffer=buf;
+    const filt=actx.createBiquadFilter();
+    filt.type='bandpass'; filt.frequency.value=950; filt.Q.value=0.7;
+    const g=actx.createGain(); g.gain.value=0.28;
+    src.connect(filt); filt.connect(g); g.connect(actx.destination);
+    src.start(); src.stop(actx.currentTime+dur);
+  } catch(e){}
+}
 
 // ═══════════════════════════════════════
 // WAYPOINT / MAPS LINK
@@ -765,23 +790,51 @@ function speakText(text, glitch=false) {
   if (!vBusy) drainVoice();
 }
 
+let _ariaVoice = null;
+let _devVoiceOverride = null;
+
+function pickAriaVoice() {
+  if (_devVoiceOverride) return _devVoiceOverride;
+  if (_ariaVoice) return _ariaVoice;
+  const vs = speechSynthesis.getVoices();
+  const prefs = ['google uk english female','zira','microsoft zira','karen','moira','samantha','fiona','nicky','victoria'];
+  for (const p of prefs) {
+    const v = vs.find(v=>v.name.toLowerCase().includes(p));
+    if (v) { _ariaVoice=v; return v; }
+  }
+  const fallback = vs.find(v=>/en[-_]/i.test(v.lang)&&/female|zira|karen|moira|samantha|victoria|nicky|fiona/i.test(v.name))
+    || vs.find(v=>/en[-_]/i.test(v.lang));
+  _ariaVoice = fallback || null;
+  return _ariaVoice;
+}
+
 function drainVoice() {
   if (!vQ.length) { vBusy=false; return; }
   vBusy=true;
   const {clean, glitch} = vQ.shift();
+  if (glitch) playStatic(120+Math.random()*160);
   const u = new SpeechSynthesisUtterance(clean);
-  u.rate = glitch ? 0.76 : 0.84;
-  u.pitch = glitch ? 0.32 : 0.44;
+  u.rate = glitch ? 0.55 : 0.84;
+  u.pitch = glitch ? 0.28 : 0.44;
   u.volume = 0.92;
-  const vs = speechSynthesis.getVoices();
-  const prefs = ['google uk english female','zira','microsoft zira','karen','moira','samantha','victoria'];
-  for (const p of prefs) {
-    const v = vs.find(v=>v.name.toLowerCase().includes(p));
-    if (v) { u.voice=v; break; }
-  }
-  u.onend = ()=>setTimeout(drainVoice, glitch?300:160);
+  u.voice = pickAriaVoice();
+  u.onend = ()=>setTimeout(drainVoice, glitch?420:160);
   u.onerror = ()=>setTimeout(drainVoice, 160);
   speechSynthesis.speak(u);
+}
+
+let _devVoiceIdx = -1;
+function devVoice() {
+  document.getElementById('devPanel').classList.remove('open');
+  const vs = speechSynthesis.getVoices().filter(v=>/en[-_]/i.test(v.lang));
+  if (!vs.length) { addLine('> DEV: no EN voices loaded yet — retry','sys'); return; }
+  _devVoiceIdx = (_devVoiceIdx+1) % vs.length;
+  const v = vs[_devVoiceIdx];
+  _devVoiceOverride = v; _ariaVoice = null;
+  addLine(`> DEV: voice → ${v.name} (${v.lang}) [${_devVoiceIdx+1}/${vs.length}]`, 'sys');
+  const test = new SpeechSynthesisUtterance('ARIA online. Testing voice.');
+  test.voice=v; test.rate=0.84; test.pitch=0.44; test.volume=0.92;
+  if (audioUnlocked) speechSynthesis.speak(test);
 }
 
 if (window.speechSynthesis) {

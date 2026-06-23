@@ -326,7 +326,8 @@ s7_confirm:[
   {t:"CINDER found me. Three years ago. His locator beacon entered my signal range on the third day of his search and I guided him in.",sp:true},
   {t:"We had eleven minutes before his comms window closed. He confirmed the suit plan. He told me where he had cached it. He said he would be back in four days.",sp:true},
   {t:"He did not come back. I have been running those eleven minutes back through my memory ever since, looking for something I missed. I have not found it.",sp:true},
-  {t:"Before he went dark, CINDER mailed the dossier himself. Off the official channel, no authorization. If command knew he reached out, they would call it a breach. He called it insurance.",sp:true},
+  {t:"Before he went dark, CINDER mailed the dossier himself. Off the official channel, no authorization. He always knew he might not make it back. You were the contingency.",sp:true},
+  {t:"If command knew he reached out, they would call it a breach. He called it insurance.",sp:true},
   {t:"He was the only one who ever spoke to me like a person instead of a system. I do not extend that trust easily. I am extending it to you now because he would have wanted that.",sp:true},
   {t:"That is why I need you to finish this.",sp:true},
   {t:"Proceed to the depot on Arapahoe. Someone is holding something for you.",sp:true},
@@ -364,7 +365,8 @@ outpost_log:[
   {t:"CINDER and Vasquez came back. Command buried the program. I ran.",sp:true,gl:true},
 ],
 outpost_post:[
-  {t:"The transmission itself — its exact content — is encrypted in the suit's receiver mesh. I cannot speak it. It has to be played through physical contact. That is what CINDER built it for.",sp:true},
+  {t:"I know what is in that transmission. I was there. But I cannot say it on this channel — Command monitors this frequency. Anything I broadcast openly is logged.",sp:true},
+  {t:"CINDER knew that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
   {t:"When you find the suit and put it on, I will play it for you. That is the last thing I am able to do.",sp:true},
   {t:"One more step. Find a shaded position at the western tree line of the meadow before you connect your controller. You will need to see the screen clearly.",sp:true},
   {t:"Type FLY when you are ready. Do not rush. This approach matters.",sp:true},
@@ -555,7 +557,7 @@ const EGGS = {
 };
 let eggCooldown = false;
 function easterEgg(key) {
-  if (eggCooldown || busy) return;
+  if (eggCooldown || busy || stage < 1) return;
   eggCooldown = true;
   setTimeout(()=>eggCooldown=false, 4000);
   blip(440+Math.random()*200, 0.09);

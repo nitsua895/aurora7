@@ -210,13 +210,13 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 <div id="lockScreen">
   <div class="lock-content">
     <svg class="lock-logo" width="56" height="56" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M 20.32 15.45 A 9 9 0 1 1 20.32 8.55" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-      <polygon points="20.5,9.5 21.12,11.15 22.88,11.23 21.5,12.32 21.97,14.02 20.5,13.05 19.03,14.02 19.5,12.32 18.12,11.23 19.88,11.15" fill="currentColor"/>
+      <path d="M 19.79 16.5 A 9 9 0 1 1 19.79 7.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <polygon points="20.5,9.16 21.21,11.06 23.24,11.15 21.65,12.41 22.19,14.36 20.5,13.25 18.81,14.36 19.35,12.41 17.76,11.15 19.79,11.06" fill="currentColor"/>
     </svg>
     <div class="lock-title">OPERATION AURORA</div>
     <div class="lock-sub">ARIA MK-IV // ACCESS RESTRICTED</div>
     <div class="lock-hint">ENTER ACCESS CODE</div>
-    <input id="lockInp" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="· · · · ·" maxlength="12"/>
+    <input id="lockInp" type="password" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="· · · · ·" maxlength="12"/>
     <button id="lockBtn" onclick="tryUnlock()">AUTHENTICATE</button>
     <div id="lockErr" class="lock-err"></div>
   </div>
@@ -226,8 +226,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   <div class="device-top">
     <span class="brand">
       <svg class="aurora-mark" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M 20.32 15.45 A 9 9 0 1 1 20.32 8.55" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-        <polygon points="20.5,9.5 21.12,11.15 22.88,11.23 21.5,12.32 21.97,14.02 20.5,13.05 19.03,14.02 19.5,12.32 18.12,11.23 19.88,11.15" fill="currentColor"/>
+        <path d="M 19.79 16.5 A 9 9 0 1 1 19.79 7.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <polygon points="20.5,9.16 21.21,11.06 23.24,11.15 21.65,12.41 22.19,14.36 20.5,13.25 18.81,14.36 19.35,12.41 17.76,11.15 19.79,11.06" fill="currentColor"/>
       </svg>
       ARIA MK-IV // AURORA TERMINAL</span>
     <div class="leds">
@@ -338,6 +338,20 @@ const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'R
 const FINAL = 'WL-40.0317°N  105.2925°W';
 const SAVE = 'aria_aurora_v5';
 const DEV_MODE = new URLSearchParams(location.search).has('dev');
+
+// ═══════════════════════════════════════
+// ON-SITE HELP — triggered when Trevor says he's lost
+// ═══════════════════════════════════════
+const HELP_HINTS = {
+  1: "Scott Carpenter Park. The cipher is at the monument itself — look near the top of the main marker, not the surrounding path. Get close. It will be on the face of the structure.",
+  2: "You are in the right place. Go to the counter. Say this exactly: \"I'm here to collect for NOVA-7.\" They are expecting you. Do not overthink it.",
+  3: "NCAR Mesa Lab on Table Mesa Drive. The cipher is embedded in a panel near the main entrance. It looks like signal noise. It is not. Step back. Let your eyes find the pattern in what looks like static.",
+  4: "Chautauqua Meadow. Walk toward the western tree line — where the meadow meets the first trees on the left side looking at the Flatirons. Find shade. Make sure you can read the screen clearly. Then type FLY.",
+  6: "Wonderland Lake, north shore. Take the path that runs along the water. Walk the north side. Look for a marker near the tree line. When you have the suit, put it on. Then just tell me.",
+};
+function isHelpPhrase(val) {
+  return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT"].some(t=>val.includes(t));
+}
 
 // ═══════════════════════════════════════
 // LOCK SCREEN — set LOCK_CODE to whatever appears in the physical dossier
@@ -798,7 +812,7 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
     cur.className='cursor';
     feed.appendChild(d);
     let i=0;
-    const base = glitch?63:46, rnd=glitch?37:25;
+    const base = glitch?65:48, rnd=glitch?39:27;
     (function step(){
       i++;
       d.textContent = text.slice(0,i);
@@ -1127,6 +1141,13 @@ async function submit() {
       await triggerRecovery();
       return;
     }
+  }
+
+  // ON-SITE HELP
+  if (HELP_HINTS[stage] && isHelpPhrase(val)) {
+    await typeLine(HELP_HINTS[stage], 'aria', true, false);
+    saveState({});
+    busy=false; enableInput(); return;
   }
 
   // FREE TEXT

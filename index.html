@@ -157,6 +157,37 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .intro-btn.ready{opacity:1}
 .intro-btn:active{background:var(--amber);color:#1a1200}
 
+#lockScreen{
+  position:fixed;inset:0;z-index:80;background:#090d09;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .8s ease;
+  background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0,rgba(0,0,0,.22) 1px,transparent 1px,transparent 3px);
+}
+#lockScreen.hidden{opacity:0;pointer-events:none}
+.lock-content{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:32px 24px}
+.lock-logo{color:var(--amber);opacity:.9;animation:lockPulse 2.2s ease-in-out infinite}
+@keyframes lockPulse{0%,100%{opacity:.6}50%{opacity:1}}
+.lock-title{font-size:11px;letter-spacing:5px;color:var(--amber);text-transform:uppercase;margin-top:4px}
+.lock-sub{font-size:9px;letter-spacing:2px;color:var(--gdim);text-transform:uppercase}
+.lock-hint{font-size:10px;letter-spacing:2px;color:var(--gdim);text-transform:uppercase;margin-top:10px}
+#lockInp{
+  background:transparent;border:none;border-bottom:1px solid var(--gdim);
+  color:var(--g);font-family:'Courier New',monospace;font-size:20px;
+  letter-spacing:10px;text-align:center;outline:none;padding:8px 16px;
+  width:200px;-webkit-appearance:none;caret-color:var(--g);
+}
+#lockInp:focus{border-bottom-color:var(--g)}
+#lockBtn{
+  background:transparent;border:1px solid var(--amber);color:var(--amber);
+  font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;
+  padding:9px 24px;cursor:pointer;text-transform:uppercase;margin-top:6px;
+  border-radius:2px;-webkit-appearance:none;
+}
+#lockBtn:active{background:var(--amber);color:#1a1200}
+.lock-err{font-size:10px;letter-spacing:2px;color:var(--red);min-height:14px;text-transform:uppercase}
+@keyframes lockShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+#lockInp.shake{animation:lockShake .35s ease}
+
 #devPanel{
   position:absolute;inset:0;z-index:60;background:rgba(2,10,4,.94);border-radius:16px;
   padding:14px 16px;display:none;flex-direction:column;gap:8px;
@@ -176,11 +207,26 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 </style>
 </head>
 <body>
+<div id="lockScreen">
+  <div class="lock-content">
+    <svg class="lock-logo" width="56" height="56" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M 20.32 15.45 A 9 9 0 1 1 20.32 8.55" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <polygon points="20.5,9.5 21.12,11.15 22.88,11.23 21.5,12.32 21.97,14.02 20.5,13.05 19.03,14.02 19.5,12.32 18.12,11.23 19.88,11.15" fill="currentColor"/>
+    </svg>
+    <div class="lock-title">OPERATION AURORA</div>
+    <div class="lock-sub">ARIA MK-IV // ACCESS RESTRICTED</div>
+    <div class="lock-hint">ENTER ACCESS CODE</div>
+    <input id="lockInp" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="· · · · ·" maxlength="12"/>
+    <button id="lockBtn" onclick="tryUnlock()">AUTHENTICATE</button>
+    <div id="lockErr" class="lock-err"></div>
+  </div>
+</div>
+
 <div class="device">
   <div class="device-top">
     <span class="brand">
       <svg class="aurora-mark" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M 20.32 15.45 A 9 9 0 1 1 20.32 8.55" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M 20.32 15.45 A 9 9 0 1 1 20.32 8.55" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
         <polygon points="20.5,9.5 21.12,11.15 22.88,11.23 21.5,12.32 21.97,14.02 20.5,13.05 19.03,14.02 19.5,12.32 18.12,11.23 19.88,11.15" fill="currentColor"/>
       </svg>
       ARIA MK-IV // AURORA TERMINAL</span>
@@ -294,6 +340,40 @@ const SAVE = 'aria_aurora_v5';
 const DEV_MODE = new URLSearchParams(location.search).has('dev');
 
 // ═══════════════════════════════════════
+// LOCK SCREEN — set LOCK_CODE to whatever appears in the physical dossier
+// ═══════════════════════════════════════
+const LOCK_CODE = 'NOVA7'; // ← CHANGE THIS before mission day
+
+(function initLock(){
+  const ls = document.getElementById('lockScreen');
+  if (localStorage.getItem('aria_auth')==='1') { ls.remove(); return; }
+  ls.style.display='flex';
+  document.getElementById('lockInp').addEventListener('keydown', e=>{
+    if (e.key==='Enter') tryUnlock();
+  });
+  setTimeout(()=>document.getElementById('lockInp').focus(), 400);
+})();
+
+function tryUnlock() {
+  const inp = document.getElementById('lockInp');
+  const val = inp.value.trim().toUpperCase();
+  if (val === LOCK_CODE) {
+    localStorage.setItem('aria_auth','1');
+    const ls = document.getElementById('lockScreen');
+    ls.classList.add('hidden');
+    setTimeout(()=>ls.remove(), 900);
+  } else {
+    inp.value='';
+    inp.classList.remove('shake');
+    void inp.offsetWidth; // reflow to retrigger animation
+    inp.classList.add('shake');
+    const err = document.getElementById('lockErr');
+    err.textContent='ACCESS DENIED';
+    setTimeout(()=>{ inp.classList.remove('shake'); err.textContent=''; }, 1600);
+  }
+}
+
+// ═══════════════════════════════════════
 // DEBUG CONSOLE — only active with ?dev in URL
 // ═══════════════════════════════════════
 function toggleDev() {
@@ -334,7 +414,7 @@ function devQR() {
   triggerRecovery();
 }
 function devReset() {
-  clearSave(); location.reload();
+  clearSave(); localStorage.removeItem('aria_auth'); location.reload();
 }
 if (DEV_MODE) {
   document.addEventListener('keydown', e => {
@@ -718,7 +798,7 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
     cur.className='cursor';
     feed.appendChild(d);
     let i=0;
-    const base = glitch?69:50, rnd=glitch?41:29;
+    const base = glitch?63:46, rnd=glitch?37:25;
     (function step(){
       i++;
       d.textContent = text.slice(0,i);

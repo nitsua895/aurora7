@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#090d09;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Courier New',monospace}
-:root{--g:#74ffaf;--g2:#3aff8a;--gdim:#4fcf8e;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b}
+:root{--g:#74ffaf;--g2:#3aff8a;--gdim:#4fcf8e;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b;--cyan:#6fe9ff;--violet:#c98bff;--rose:#ff8fb3}
 
 .device{
   position:relative;width:min(800px,100vw);height:min(680px,100vh);
@@ -66,8 +66,9 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .badge.gps.live{color:var(--g);border-color:var(--g)}
 .badge.gps.warn{color:var(--amber);border-color:var(--amber)}
 .badge.pad{color:var(--g);border-color:var(--gdim);display:none}
-.badge.waypoint{color:var(--amber);border-color:var(--amber);cursor:pointer;display:none;align-items:center;justify-content:space-between;gap:8px}
+.badge.waypoint{color:var(--amber);border-color:var(--amber);cursor:pointer;display:none;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 0;animation:waypointGlow 3s ease-in-out infinite}
 .badge.waypoint:active{background:rgba(255,207,107,.14)}
+@keyframes waypointGlow{0%,100%{box-shadow:0 0 0 rgba(255,207,107,0)}50%{box-shadow:0 0 9px rgba(255,207,107,.35)}}
 
 .feed{
   flex:1;overflow-y:auto;overflow-x:hidden;
@@ -80,11 +81,12 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .line.sys{color:var(--gdim);font-size:11px;letter-spacing:1px}
 .line.me{color:var(--amber)}
 .line.aria{color:var(--g);text-shadow:0 0 8px rgba(80,255,160,.3)}
-.line.glitch{color:#5adf8f;opacity:.88;text-shadow:0 0 12px rgba(80,255,160,.5);letter-spacing:.5px}
+.line.glitch{color:var(--violet);opacity:.9;text-shadow:0 0 12px rgba(201,139,255,.5);letter-spacing:.5px}
 .line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.78}
-.line.chapter{color:var(--g2);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px}
+.line.chapter{color:var(--cyan);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px;text-shadow:0 0 8px rgba(111,233,255,.4)}
 .line.hilite{color:var(--amber);font-weight:bold;letter-spacing:1px;text-shadow:0 0 12px rgba(255,207,107,.65)}
 .line.warn{color:var(--red)}
+.line.egg{color:var(--rose);font-style:italic;text-shadow:0 0 10px rgba(255,143,179,.5)}
 .cursor{display:inline-block;width:8px;height:13px;background:var(--g);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 
@@ -112,9 +114,11 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
 .device-bottom{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
 .hw-btns{display:flex;gap:7px;align-items:center}
-.hw-btn{height:10px;width:28px;background:linear-gradient(180deg,#1a201a,#0f130f);border-radius:5px;border:1px solid #080b08}
+.hw-btn{height:10px;width:28px;background:linear-gradient(180deg,#1a201a,#0f130f);border-radius:5px;border:1px solid #080b08;cursor:pointer;transition:transform .15s}
 .hw-btn.md{width:52px}
-.hw-knob{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 33% 30%,#222922,#101310);border:1px solid #080908;box-shadow:0 1px 4px rgba(0,0,0,.7)}
+.hw-btn:active{transform:scale(.92)}
+.hw-knob{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 33% 30%,#222922,#101310);border:1px solid #080908;box-shadow:0 1px 4px rgba(0,0,0,.7);cursor:pointer;transition:transform .15s}
+.hw-knob:active{transform:scale(.88) rotate(25deg)}
 .loc-dot{width:8px;height:8px;border-radius:50%;transition:all .6s;background:#1a2a1a}
 .loc-dot.live{background:var(--g);box-shadow:0 0 10px var(--g)}
 .loc-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
@@ -125,19 +129,19 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .reset-confirm{font-size:9px;color:var(--red);letter-spacing:1px}
 
 .intro-overlay{
-  position:absolute;inset:0;z-index:50;border-radius:16px;overflow:hidden;
+  position:absolute;inset:0;z-index:15;border-radius:16px;overflow:hidden;
   background:radial-gradient(ellipse at 50% 50%,#03130a 0%,#010402 80%);
   display:flex;align-items:center;justify-content:center;
   transition:opacity .6s ease;
 }
 .intro-overlay.hidden{opacity:0;pointer-events:none}
-.intro-sweep{position:absolute;inset:-30%;overflow:hidden}
+.intro-sweep{position:absolute;inset:0;overflow:hidden}
 .intro-sweep::before{
-  content:'';position:absolute;top:0;left:0;width:100%;height:100%;
-  background:conic-gradient(from 0deg,transparent 0deg,rgba(116,255,175,.16) 16deg,transparent 38deg);
-  animation:introSweep 2.8s linear infinite;
+  content:'';position:absolute;top:-25%;left:0;width:100%;height:25%;
+  background:linear-gradient(180deg,transparent 0%,rgba(116,255,175,.14) 50%,transparent 100%);
+  animation:introSweep 3.4s linear infinite;
 }
-@keyframes introSweep{to{transform:rotate(360deg)}}
+@keyframes introSweep{0%{transform:translateY(0%)}100%{transform:translateY(500%)}}
 .intro-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:0 24px}
 .intro-art{font-size:13px;letter-spacing:6px;color:var(--g);text-shadow:0 0 16px rgba(116,255,175,.7);animation:introPulse 1.8s ease-in-out infinite}
 @keyframes introPulse{0%,100%{opacity:.55}50%{opacity:1}}
@@ -185,7 +189,6 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
       <div class="badge gps warn" id="gpsBadge">◈ ACQUIRING POSITION ...</div>
       <div class="badge pad" id="padBadge">◈ CONTROLLER CONNECTED</div>
-      <div class="badge waypoint" id="waypointBadge" onclick="openCurrentWaypoint()"></div>
 
       <div class="feed" id="feed"></div>
 
@@ -193,6 +196,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
         <canvas id="gameCanvas"></canvas>
         <div class="game-hint">← → MOVE · SWIPE MOBILE · L-STICK CONTROLLER · DODGE ALL DEBRIS</div>
       </div>
+
+      <div class="badge waypoint" id="waypointBadge" onclick="openCurrentWaypoint()"></div>
 
       <div class="input-row">
         <input id="inp" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="transmit to ARIA..." disabled />
@@ -212,9 +217,9 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
   <div class="device-bottom">
     <div class="hw-btns">
-      <div class="hw-btn"></div>
-      <div class="hw-btn md"></div>
-      <div class="hw-btn"></div>
+      <div class="hw-btn" onclick="easterEgg('btn1')"></div>
+      <div class="hw-btn md" onclick="easterEgg('btn2')"></div>
+      <div class="hw-btn" onclick="easterEgg('btn3')"></div>
     </div>
     <div class="hw-btns">
       <div class="reset-area" id="resetArea" style="display:none">
@@ -227,8 +232,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       <div class="loc-dot warn" id="locDot"></div>
     </div>
     <div class="hw-btns">
-      <div class="hw-knob"></div>
-      <div class="hw-knob"></div>
+      <div class="hw-knob" onclick="easterEgg('knob1')"></div>
+      <div class="hw-knob" onclick="easterEgg('knob2')"></div>
     </div>
   </div>
 </div>
@@ -306,7 +311,7 @@ boot:[
 ],
 s7_free:[
   "Scott Carpenter. Born here. Grew up looking at those mountains. Decided the sky was not far enough.",
-  "Aurora 7. Three orbits. 1962. He controlled reentry manually when the instruments failed. Brought himself home by feel.",
+  "Aurora 7. Scott Carpenter's capsule. Mercury-Atlas 7, 1962, three orbits — he flew reentry by feel after the autopilot failed. Astronauts named their own ships back then. When command commissioned my vessel decades later, they borrowed his name on purpose. A nod to a Boulder kid who looked at the sky and went. My Aurora is not his Aurora. Same name. Different horizon.",
   "CINDER logged this site first. He said it felt like a starting gun.",
   "The cipher is at the top. You have to climb for it. That is intentional.",
 ],
@@ -516,6 +521,27 @@ function openCurrentWaypoint() {
   window.open(url, '_blank', 'noopener');
 }
 
+// ═══════════════════════════════════════
+// HARDWARE EASTER EGGS — decorative bezel controls
+// ═══════════════════════════════════════
+const EGGS = {
+  btn1: ["...channel sweep negative. Nothing on btn 1. Habit, NOVA-7?", "That switch has done nothing for three years. I keep it anyway."],
+  btn2: ["Diagnostic toggle. Cosmetic. CINDER flipped this one constantly when he was thinking.", "No function. CINDER used to say it helped him listen."],
+  btn3: ["Power trim, decommissioned. The real reserve is the array outside. This does nothing.", "Still warm to the touch, if that means anything to you."],
+  knob1: ["Squelch knob. Dead since the crash. Turn it if it helps.", "I cannot feel you turning that. But go ahead."],
+  knob2: ["Tuning dial. There is nothing left to tune. I am the only frequency out here.", "CINDER nicknamed this one 'the maybe knob.' He never explained why."],
+};
+let eggCooldown = false;
+function easterEgg(key) {
+  if (eggCooldown || busy) return;
+  eggCooldown = true;
+  setTimeout(()=>eggCooldown=false, 4000);
+  blip(440+Math.random()*200, 0.09);
+  pulse(15);
+  const line = getFree(EGGS[key], 'egg_'+key);
+  addLine(line, 'egg');
+}
+
 function speakText(text, glitch=false) {
   if (!audioUnlocked || !window.speechSynthesis) return;
   const clean = text.replace(/[█▓▒░_>\[\]\/\\|()≋◈═┌┐└┘│─┬┴●▶]/g,'').replace(/\s+/g,' ').trim();
@@ -571,7 +597,7 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
     cur.className='cursor';
     feed.appendChild(d);
     let i=0;
-    const base = glitch?78:58, rnd=glitch?46:34;
+    const base = glitch?60:42, rnd=glitch?36:24;
     (function step(){
       i++;
       d.textContent = text.slice(0,i);

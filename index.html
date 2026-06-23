@@ -1068,6 +1068,7 @@ function startGame() {
       await playSeq(SCRIPT.win_post,'aria',340);
       addLine(ART.lake,'ascii');
       addLine('> WAYPOINT: WONDERLAND LAKE — NORTH SHORE','sys');
+      addLine('> NO CIPHER HERE. PUT THE SUIT ON, THEN JUST TELL ME.','sys');
       stage=6;
       setWaypoint('lake');
       saveState({lastLine:SCRIPT.win_post[0].t});

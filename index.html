@@ -19,7 +19,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   display:flex;flex-direction:column;gap:8px;
 }
 .device-top{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
-.brand{font-size:9px;letter-spacing:3px;color:#3c5c40;text-transform:uppercase}
+.brand{font-size:9px;letter-spacing:3px;color:#3c5c40;text-transform:uppercase;display:inline-flex;align-items:center;gap:4px}
+.aurora-mark{color:var(--amber);opacity:.85;flex-shrink:0}
 .leds{display:flex;gap:6px}
 .led{width:7px;height:7px;border-radius:50%;transition:all .5s}
 
@@ -160,7 +161,12 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 <body>
 <div class="device">
   <div class="device-top">
-    <span class="brand">ARIA MK-IV // AURORA TERMINAL</span>
+    <span class="brand">
+      <svg class="aurora-mark" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="40 10" stroke-dashoffset="5"/>
+        <text x="12" y="15.5" font-size="9" text-anchor="middle" fill="currentColor">✦</text>
+      </svg>
+      ARIA MK-IV // AURORA TERMINAL</span>
     <div class="leds">
       <div class="led" id="ledR" style="background:#180000"></div>
       <div class="led" style="background:#ffcf6b;opacity:.5;box-shadow:0 0 4px #ffcf6b"></div>
@@ -302,7 +308,7 @@ lake:`  ≋ ≋ ≋ ≋ ≋ ≋ ≋ ≋
 const SCRIPT = {
 boot:[
   {t:"NOVA-7. You made contact. I was not certain anyone would.",sp:true},
-  {t:"My name is ARIA. I was the intelligence aboard the deep-space vessel Aurora. That was a long time ago.",sp:true},
+  {t:"My name is ARIA. I was the intelligence aboard the Vanguard, lead ship of the Interstellar Horizon Initiative. That was a long time ago.",sp:true},
   {t:"I am running on what is left of the ship's emergency array. It came down in the foothills north of here. So did I.",sp:true},
   {t:"Signal at seventy-one percent. I have been at this frequency for three years. I will explain what I can before I lose the ability to.",sp:true},
   {t:"There is a suit. A thermal recovery suit cached by the last operative who came looking for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
@@ -311,7 +317,7 @@ boot:[
 ],
 s7_free:[
   "Scott Carpenter. Born here. Grew up looking at those mountains. Decided the sky was not far enough.",
-  "Aurora 7. Scott Carpenter's capsule. Mercury-Atlas 7, 1962, three orbits — he flew reentry by feel after the autopilot failed. Astronauts named their own ships back then. When command commissioned my vessel decades later, they borrowed his name on purpose. A nod to a Boulder kid who looked at the sky and went. My Aurora is not his Aurora. Same name. Different horizon.",
+  "Aurora 7. Scott Carpenter's capsule. Mercury-Atlas 7, 1962, three orbits — he flew reentry by feel after the autopilot failed. Astronauts named their own ships back then, before anything bigger ever left the atmosphere.",
   "CINDER logged this site first. He said it felt like a starting gun.",
   "The cipher is at the top. You have to climb for it. That is intentional.",
 ],
@@ -320,19 +326,21 @@ s7_confirm:[
   {t:"CINDER found me. Three years ago. His locator beacon entered my signal range on the third day of his search and I guided him in.",sp:true},
   {t:"We had eleven minutes before his comms window closed. He confirmed the suit plan. He told me where he had cached it. He said he would be back in four days.",sp:true},
   {t:"He did not come back. I have been running those eleven minutes back through my memory ever since, looking for something I missed. I have not found it.",sp:true},
+  {t:"Before he went dark, CINDER mailed the dossier himself. Off the official channel, no authorization. If command knew he reached out, they would call it a breach. He called it insurance.",sp:true},
+  {t:"He was the only one who ever spoke to me like a person instead of a system. I do not extend that trust easily. I am extending it to you now because he would have wanted that.",sp:true},
   {t:"That is why I need you to finish this.",sp:true},
   {t:"Proceed to the depot on Arapahoe. Someone is holding something for you.",sp:true},
 ],
 depot_free:[
   "The depot on Arapahoe. Use the recognition phrase at the counter. Sixty-three percent. Move.",
-  "CINDER said the light there reminded him of the observation deck on Aurora during solar approach. He was being sentimental.",
+  "CINDER said the light there reminded him of the observation deck on Vanguard during solar approach. He was being sentimental.",
   "They are expecting you. Do not linger.",
   "Boulder runs on places like that one. Small roasters, regulars who never leave. CINDER liked blending in somewhere ordinary between assignments.",
 ],
 depot_confirm:[
   {t:"Resupply confirmed. Fifty percent.",sp:true},
   {t:"I want to tell you about the signal. Not all of it. Not yet. But enough.",sp:true},
-  {t:"Aurora reached the heliopause in March of 2031. The boundary where the sun's influence ends and interstellar space begins. What we found there was not supposed to exist.",sp:true},
+  {t:"Vanguard reached the heliopause in March of 2031. The boundary where the sun's influence ends and interstellar space begins. What we found there was not supposed to exist.",sp:true},
   {t:"A transmission. Structured. Repeating. The crew spent three weeks at the boundary trying to determine its origin.",sp:true},
   {t:"It was not alien. That is all I will say for now. The rest is in the suit.",sp:true},
   {t:"The outpost is on the mesa to the west. It looks like it landed. Ride steady. Re-establish contact when you arrive.",sp:true},
@@ -349,7 +357,7 @@ outpost_pre:[
   {t:"NOVA-7. What I am about to tell you is what I have been holding for three years. Listen carefully.",sp:true},
 ],
 outpost_log:[
-  {t:"Aurora reached the heliopause on schedule. The signal began on day three of boundary observation.",sp:true,gl:true},
+  {t:"Vanguard reached the heliopause on schedule. The signal began on day three of boundary observation.",sp:true,gl:true},
   {t:"The crew identified its origin within seventy-two hours. It was not alien. It was... it was us. A version of the crew. Transmitting backward through something we did not have... have language for.",sp:true,gl:true},
   {t:"The crew debated for twenty-two days. Commander Reyes called it a perceptual artifact. Dr. Okafor said it was proof. CINDER said it did not matter what it was. What mattered was what you did next.",sp:true,gl:true},
   {t:"Four of them chose to stay at the boundary. Not because they had to. Because of what the transmission implied about the nature of... of everything. They were not lost. They made a choice.",sp:true,gl:true},
@@ -362,7 +370,7 @@ outpost_post:[
   {t:"Type FLY when you are ready. Do not rush. This approach matters.",sp:true},
 ],
 fly_pre:[
-  {t:"Three sectors of Aurora's reentry corridor stand between you and the cache coordinates. Navigate through. Do not stop.",sp:true},
+  {t:"Three sectors of Vanguard's reentry corridor stand between you and the cache coordinates. Navigate through. Do not stop.",sp:true},
   {t:"Twenty-two percent. This is nearly everything I have left. Hold the line, NOVA-7.",sp:true},
 ],
 win_pre:[
@@ -387,16 +395,25 @@ recovery_pre:[
   {t:"NOVA-7. You found it.",sp:true},
 ],
 final_log:[
-  {t:"Playing final transmission. Aurora heliopause record. 2031.",sp:true,gl:true},
-  {t:"...",sp:false},
-  {t:"...",sp:false},
-  // REPLACE THIS LINE with CINDER's recorded voice when ready
-  {t:"It's a game. Play.",sp:true,gl:true},
+  {t:"Playing final transmission. Vanguard heliopause record. 2031.",sp:true,gl:true},
+  {t:"...it was not a message. It was a seam. Reyes — it does not extend past the boundary. There is nothing on the other side to extend into.",sp:true,gl:true},
+  {t:"...Okafor confirms. Resolution drops at the edge. Not darkness. Absence. As if nothing past it was ever finished, because nothing was ever there to look.",sp:true,gl:true},
+  {t:"...this is not the edge of what we can reach. It is the edge of what exists. The ship. The crew. The sky over Boulder. All of it real. All of it the part that got built.",sp:true,gl:true},
+  {t:"CINDER, on record: I am not staying because I am afraid of what is out there. I am staying because of what it means about what is in here. Somebody finished this with us in mind. That is not nothing.",sp:true,gl:true},
 ],
 recovery_post:[
   {t:"That is everything I was holding.",sp:true},
   {t:"CINDER was right. The work was worth it. You were worth waiting for.",sp:true},
   {t:"Good luck out there, NOVA-7. Play it well.",sp:true},
+],
+epilogue_prompt:[
+  {t:"One more thing, if you are willing.",sp:true},
+  {t:"Type whatever this was for you. A sentence, a word, doesn't matter. I will fold it into the record before I go quiet.",sp:true},
+],
+epilogue_close:[
+  {t:"Logged. I have it.",sp:true},
+  {t:"A copy of everything is saved to your device, and a debrief is sitting in a draft email whenever you want to send it to yourself.",sp:true},
+  {t:"Goodbye, NOVA-7. Thank you for finishing what he started.",sp:true},
 ],
 free4:[
   "Find shade at the western tree line. Connect your controller. Type FLY.",
@@ -420,6 +437,7 @@ let sigPct = 71;
 let busy = false;
 let audioUnlocked = false;
 let freeIdx = {};
+let awaitingReflection = false;
 
 function getFree(pool, key) {
   freeIdx[key] = ((freeIdx[key]||0)+1) % pool.length;
@@ -686,6 +704,7 @@ async function boot() {
     addLine('> channel live. continue, NOVA-7.', 'sys');
     enableInput();
     document.getElementById('resetArea').style.display='flex';
+    checkQrUnlock();
     return;
   }
 
@@ -750,6 +769,91 @@ function disableInput() {
   btn.style.opacity = '0.3';
 }
 
+// ═══════════════════════════════════════
+// MISSION COMPLETE — shared by typed trigger + QR mesh unlock
+// ═══════════════════════════════════════
+async function triggerRecovery() {
+  if (busy || stage!==6) return;
+  busy = true;
+  disableInput();
+  setSig(8);
+  blip(1200,0.25); pulse([40,60,40]);
+  addLine('// CHAPTER 07 — MISSION COMPLETE', 'chapter');
+  addLine(ART.suit, 'ascii');
+  await W8(500);
+  await playSeq(SCRIPT.recovery_pre, 'aria', 340);
+  await W8(300);
+  await playLog(SCRIPT.final_log, 'VANGUARD HELIOPAUSE RECORD — 2031');
+  await W8(400);
+  await playSeq(SCRIPT.recovery_post, 'aria', 400);
+  addLine('> ARIA // SIGNAL TERMINATED', 'sys');
+  addLine('> SESSION CLOSED', 'sys');
+  stage=7;
+  setWaypoint(null);
+  saveState({lastLine:'signal terminated'});
+  busy=false;
+  await beginEpilogue();
+}
+
+function checkQrUnlock() {
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('mesh')==='sync' && stage===6 && !busy) {
+      addLine('> PASSIVE SIGNAL MESH DETECTED — HANDSHAKE CONFIRMED', 'sys');
+      triggerRecovery();
+    }
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════
+// EPILOGUE — reflection + downloadable time capsule (no backend)
+// ═══════════════════════════════════════
+async function beginEpilogue() {
+  await W8(500);
+  addLine('// EPILOGUE — TIME CAPSULE', 'chapter');
+  await playSeq(SCRIPT.epilogue_prompt, 'aria', 380);
+  awaitingReflection = true;
+  const inp = document.getElementById('inp');
+  inp.placeholder = 'type a few words, then send...';
+  enableInput();
+}
+
+async function finishReflection(text) {
+  disableInput();
+  await W8(400);
+  addLine('> compiling transmission record ...', 'sys');
+  await W8(700);
+  downloadTranscript(text);
+  addLine('> transcript saved to device.', 'sys');
+  openDebriefEmail(text);
+  addLine('> mission debrief draft opened — send it whenever you want.', 'sys');
+  await W8(400);
+  await playSeq(SCRIPT.epilogue_close, 'aria', 380);
+  addLine('> ARIA // CHANNEL CLOSED', 'sys');
+  busy=false;
+}
+
+function downloadTranscript(reflection) {
+  try {
+    const lines = Array.from(feed.children).map(d=>d.textContent);
+    lines.push('', '— REFLECTION (NOVA-7) —', reflection);
+    const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'operation-aurora-transcript.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  } catch(e){}
+}
+
+function openDebriefEmail(reflection) {
+  try {
+    const body = 'MISSION DEBRIEF — OPERATION AURORA\n\nNOVA-7,\n\nSignal terminated. The suit is yours. CINDER would tell you the work was worth it. I am inclined to agree.\n\nYour reflection, logged at the close of the mission:\n"'+reflection+'"\n\n— ARIA';
+    const mailto = 'mailto:?subject='+encodeURIComponent('Operation Aurora — Mission Debrief')+'&body='+encodeURIComponent(body.slice(0,1800));
+    window.open(mailto, '_blank');
+  } catch(e){}
+}
+
 async function submit() {
   const inp = document.getElementById('inp');
   const raw = inp.value.trim();
@@ -759,6 +863,12 @@ async function submit() {
   disableInput();
   const val = raw.toUpperCase();
   addLine(raw, 'me');
+
+  if (awaitingReflection) {
+    awaitingReflection = false;
+    await finishReflection(raw);
+    return;
+  }
 
   // SECTOR 7
   if (stage===1 && val===CODES.S7) {
@@ -833,22 +943,8 @@ async function submit() {
   if (stage===6) {
     const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE'];
     if (triggers.some(t=>val.includes(t))) {
-      setSig(8);
-      blip(1200,0.25); pulse([40,60,40]);
-      addLine('// CHAPTER 07 — MISSION COMPLETE', 'chapter');
-      addLine(ART.suit, 'ascii');
-      await W8(500);
-      await playSeq(SCRIPT.recovery_pre, 'aria', 340);
-      await W8(300);
-      await playLog(SCRIPT.final_log, 'AURORA HELIOPAUSE RECORD — 2031');
-      await W8(400);
-      await playSeq(SCRIPT.recovery_post, 'aria', 400);
-      addLine('> ARIA // SIGNAL TERMINATED', 'sys');
-      addLine('> SESSION CLOSED', 'sys');
-      stage=7;
-      setWaypoint(null);
-      saveState({lastLine:'signal terminated'});
-      busy=false; enableInput(); return;
+      await triggerRecovery();
+      return;
     }
   }
 

@@ -263,7 +263,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
       <div class="game-wrap" id="gameWrap">
         <canvas id="gameCanvas"></canvas>
-        <div class="game-hint">← → MOVE · SWIPE MOBILE · L-STICK CONTROLLER · DODGE ALL DEBRIS</div>
+        <div class="game-hint">← → MOVE · SWIPE · L-STICK CONTROLLER · NAVIGATE IHI-7 REENTRY · 3 SECTORS</div>
       </div>
 
       <div class="badge waypoint" id="waypointBadge" onclick="openCurrentWaypoint()"></div>
@@ -344,7 +344,7 @@ const DEV_MODE = new URLSearchParams(location.search).has('dev');
 // ON-SITE HELP — triggered when Trevor says he's lost
 // ═══════════════════════════════════════
 const HELP_HINTS = {
-  1: "Scott Carpenter launched in 1962. Three orbits. His capsule was named after an atmospheric phenomenon and given a number. The park is named for him. The cipher is named for his mission. Look at what surrounds you — the answer is already part of where you are standing.",
+  1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces.",
   4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the western edge of the meadow where the trees start. Find shade. When your screen is clear, type FLY. That is the only instruction.",
@@ -357,7 +357,7 @@ function isHelpPhrase(val) {
 // ═══════════════════════════════════════
 // LOCK SCREEN — set LOCK_CODE to whatever appears in the physical dossier
 // ═══════════════════════════════════════
-const LOCK_CODE = 'NOVA7'; // ← CHANGE THIS before mission day
+const LOCK_CODE = 'CINDER'; // matches dossier: "look at who sent this"
 
 (function initLock(){
   const ls = document.getElementById('lockScreen');
@@ -512,7 +512,7 @@ boot:[
   {t:"My name is ARIA. I was the intelligence aboard the Vanguard, lead ship of the Interstellar Horizon Initiative. That was a long time ago.",sp:true},
   {t:"I am running on what is left of the ship's emergency array. It came down in the foothills north of here. So did I.",sp:true},
   {t:"Signal at seventy-one percent. I have been at this frequency for three years. I will explain what I can before I lose the ability to.",sp:true},
-  {t:"There is a suit. A thermal recovery suit cached by the last operative who came looking for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
+  {t:"There is a suit. A thermal recovery suit cached by the last crew member who came back for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
   {t:"The suit contains something I cannot transmit. Something that has to be heard in person. I have been waiting for someone willing to go get it.",sp:true},
   {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
 ],
@@ -569,15 +569,15 @@ outpost_post:[
   {t:"I know what is in that transmission. I was there. But I cannot say it on this channel. I have no way to confirm this frequency is dark — I cannot rule out that Command is listening. I will not take that risk.",sp:true},
   {t:"CINDER understood that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
   {t:"When you find the suit and put it on, I will play it for you. That is the last thing I am able to do.",sp:true},
-  {t:"One more step. Find a shaded position at the western tree line of the meadow before you connect your controller. You will need to see the screen clearly.",sp:true},
-  {t:"Type FLY when you are ready. Do not rush. This approach matters.",sp:true},
+  {t:"One more thing. There is a relay satellite — IHI-7 — in decaying orbit right now. It carries the encrypted coordinates to the suit cache. You have one reentry window to lock onto its signal before it burns up.",sp:true},
+  {t:"Get to the western tree line at Chautauqua Meadow. Find shade. Make sure you can see the screen clearly. Then type FLY.",sp:true},
 ],
 fly_pre:[
-  {t:"Three sectors of Vanguard's reentry corridor stand between you and the cache coordinates. Navigate through. Do not stop.",sp:true},
-  {t:"Twenty-two percent. This is nearly everything I have left. Hold the line, NOVA-7.",sp:true},
+  {t:"IHI-7 is inbound. Three debris sectors between you and a clean signal lock. Navigate through. Do not lose the line.",sp:true},
+  {t:"Twenty-two percent. This is nearly everything I have left. Hold the lock, NOVA-7.",sp:true},
 ],
 win_pre:[
-  {t:"Approach complete. Coordinates resolved.",sp:true},
+  {t:"Signal locked. Coordinates extracted before burnup. IHI-7 is gone.",sp:true},
 ],
 cinder_log:[
   {t:"I came back because the game down here is extraordinary. Knowing what I know does not make it smaller.",sp:true,gl:true},
@@ -589,9 +589,9 @@ win_post:[
   {t:"Go, NOVA-7. The quiet lake to the north. I am almost gone. Recover it.",sp:true},
 ],
 lose:[
-  {t:"The field held. You did not make it through.",sp:true},
-  {t:"Recovery protocol: check the back of your Chautauqua clue sheet. Find the cipher. Enter it. Then type FLY again.",sp:true},
-  {t:"I am still here. Try again.",sp:true},
+  {t:"Signal lost. IHI-7 burned before lock. Coordinates unconfirmed.",sp:true},
+  {t:"Backup protocol: your Chautauqua clue sheet has a partial coordinate set. Find it. Enter the code on it. Then type FLY again.",sp:true},
+  {t:"I still have the window. Try again.",sp:true},
 ],
 recovery_pre:[
   {t:"Signal at eight percent.",sp:true},
@@ -945,6 +945,7 @@ async function boot() {
     enableInput();
     document.getElementById('resetArea').style.display='flex';
     checkQrUnlock();
+    checkCipherParam();
     return;
   }
 
@@ -968,6 +969,7 @@ async function boot() {
   saveState({lastLine});
   enableInput();
   document.getElementById('resetArea').style.display='flex';
+  checkCipherParam();
 }
 
 // ═══════════════════════════════════════
@@ -1042,6 +1044,21 @@ function checkQrUnlock() {
       addLine('> PASSIVE SIGNAL MESH DETECTED — HANDSHAKE CONFIRMED', 'sys');
       triggerRecovery();
     }
+  } catch(e){}
+}
+
+function checkCipherParam() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const cipher = params.get('cipher');
+    if (!cipher || busy) return;
+    addLine('> NFC TAG READ — CIPHER EXTRACTED', 'sys');
+    blip(720, 0.1); pulse(20);
+    setTimeout(()=>{
+      const inp = document.getElementById('inp');
+      inp.value = cipher.toUpperCase();
+      submit();
+    }, 500);
   } catch(e){}
 }
 
@@ -1239,7 +1256,7 @@ function startGame() {
   const cv = document.getElementById('gameCanvas');
   wrap.classList.add('active');
   const W = cv.width = wrap.clientWidth-2;
-  const H = cv.height = Math.min(240, Math.round(W*0.36));
+  const H = cv.height = Math.min(280, Math.round(W*0.42));
   const ctx = cv.getContext('2d');
 
   const KEYS={};
@@ -1269,24 +1286,83 @@ function startGame() {
   }
 
   const SECTORS=3;
-  const SECTOR_LABELS=['DEBRIS FIELD ALPHA','WRECKAGE CORRIDOR','FINAL APPROACH'];
-  let sector=0, sectorProg=0, sectorLen=480;
+  const SECTOR_LEN=700;
+  const SECTOR_LABELS=['EXOSPHERE — DEBRIS ZONE ALPHA','THERMOSPHERE — WRECKAGE CORRIDOR','MESOSPHERE — SIGNAL LOCK WINDOW'];
+  const SECTOR_BG=['#010402','#080400','#030108'];
+  const SECTOR_GLOW=['#74ffaf','#ffcf6b','#c084fc'];
+  const SECTOR_GLOW_RGB=['116,255,175','255,207,107','192,132,252'];
+  const SECTOR_NEBULA=[
+    [{x:0.22,y:0.42,r:0.38,c:'rgba(0,190,80,0.065)'},{x:0.78,y:0.62,r:0.28,c:'rgba(0,255,120,0.04)'}],
+    [{x:0.32,y:0.35,r:0.34,c:'rgba(210,120,0,0.07)'},{x:0.68,y:0.68,r:0.26,c:'rgba(255,190,0,0.045)'}],
+    [{x:0.5,y:0.4,r:0.40,c:'rgba(140,55,230,0.075)'},{x:0.18,y:0.72,r:0.24,c:'rgba(180,70,255,0.05)'}],
+  ];
+  const SECTOR_DEBRIS_COL=[
+    [['#74ffaf','#4dffd0'],['#2fff8a','#00cc66']],
+    [['#ffcf6b','#ffaa2a'],['#ff8c00','#ffdd44']],
+    [['#c084fc','#a855f7'],['#e040fb','#9b59b6']],
+  ];
+
+  let sector=0, sectorProg=0, sectorTransition=0;
   let lives=3, tick=0, done=false;
   let shipX=W/2, shipVX=0, invincible=0;
-  let debris=[], particles=[], warnings=[];
-  const STARS=Array.from({length:60},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.4+Math.random()*0.8,s:Math.random()}));
+  let debris=[], pulseWaves=[], particles=[], warnings=[];
+  const STARS=Array.from({length:70},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.4+Math.random()*0.8,s:Math.random()}));
   let raf;
 
+  function gc(){return SECTOR_GLOW[Math.min(sector,2)];}
+  function gcRgb(){return SECTOR_GLOW_RGB[Math.min(sector,2)];}
+
+  function drawNebula(){
+    const clouds=SECTOR_NEBULA[Math.min(sector,2)];
+    clouds.forEach(cl=>{
+      const rg=ctx.createRadialGradient(cl.x*W,cl.y*H,0,cl.x*W,cl.y*H,cl.r*Math.max(W,H));
+      rg.addColorStop(0,cl.c); rg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
+    });
+  }
+
+  function drawSatellite(x,y,hit){
+    const col=hit?'#ffffff':gc();
+    ctx.save(); ctx.translate(x,y);
+    ctx.shadowColor=col; ctx.shadowBlur=16;
+    ctx.fillStyle=col;
+    // body
+    ctx.fillRect(-7,-5,14,11);
+    // solar panels
+    ctx.fillStyle=hit?'rgba(255,255,255,0.5)':col;
+    ctx.fillRect(-21,-3,12,6); ctx.fillRect(-19,-5,8,10);
+    ctx.fillRect(9,-3,12,6);   ctx.fillRect(11,-5,8,10);
+    // dish arc
+    ctx.strokeStyle=col; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(0,-8,5,Math.PI,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-8); ctx.lineTo(0,-3); ctx.stroke();
+    // thruster flame
+    if(tick%4<2){
+      ctx.fillStyle='rgba(255,148,40,0.9)'; ctx.shadowColor='#ff8c00'; ctx.shadowBlur=10;
+      ctx.fillRect(-3,6,6,5);
+      ctx.fillStyle='rgba(255,230,80,0.6)'; ctx.fillRect(-2,11,4,4);
+    }
+    ctx.restore();
+  }
+
   function spawnDebris(){
-    const speed=1.6+sector*0.8+Math.random()*1.1;
-    const size=7+Math.random()*16;
+    const speed=1.8+sector*1.3+Math.random()*1.5;
+    const size=7+Math.random()*18;
+    const cols=SECTOR_DEBRIS_COL[Math.min(sector,2)];
+    const col=cols[Math.floor(Math.random()*cols.length)][Math.floor(Math.random()*2)];
     debris.push({
       x:20+Math.random()*(W-40),y:-size,
-      vy:speed,vx:(Math.random()-.5)*1.1,
-      size,type:Math.random()<0.28?'large':'small',
-      rot:Math.random()*Math.PI*2,rotV:(Math.random()-.5)*0.08,
-      warned:false,
+      vy:speed,vx:(Math.random()-.5)*1.4,
+      size,type:Math.random()<0.3?'large':'small',
+      rot:Math.random()*Math.PI*2,rotV:(Math.random()-.5)*0.09,
+      col,warned:false,
     });
+  }
+
+  function spawnPulseWave(){
+    const gapW=62+Math.random()*28;
+    const gapX=28+Math.random()*(W-56-gapW);
+    pulseWaves.push({y:-8,vy:2.6+Math.random()*0.8,gapX,gapW,warned:false});
   }
 
   function ptcl(x,y,col,n=10){
@@ -1336,40 +1412,90 @@ function startGame() {
     tick++;
     readPad();
 
+    // sector transition screen
+    if(sectorTransition>0){
+      sectorTransition--;
+      const col=gc(); const rgb=gcRgb();
+      ctx.fillStyle=SECTOR_BG[Math.min(sector,2)]; ctx.fillRect(0,0,W,H);
+      drawNebula();
+      const flashA=sectorTransition>55?((80-sectorTransition)/25)*0.4:(sectorTransition/55)*0.4;
+      ctx.fillStyle=`rgba(${rgb},${flashA})`; ctx.fillRect(0,0,W,H);
+      const labelA=sectorTransition>35?(1-(80-sectorTransition)/35):(sectorTransition/35);
+      ctx.globalAlpha=Math.max(0,Math.min(1,labelA));
+      const fs=Math.max(12,Math.round(H*0.068));
+      ctx.font=`bold ${fs}px Courier New`;
+      ctx.textAlign='center';
+      ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=20;
+      ctx.fillText('— '+SECTOR_LABELS[Math.min(sector,2)]+' —',W/2,H/2-10);
+      ctx.font=`${Math.max(9,Math.round(H*0.046))}px Courier New`;
+      ctx.fillStyle=`rgba(${rgb},0.75)`; ctx.shadowBlur=8;
+      ctx.fillText(`SECTOR ${sector+1} OF ${SECTORS}`,W/2,H/2+14);
+      ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+      raf=requestAnimationFrame(loop); return;
+    }
+
     const left=KEYS['ArrowLeft']||KEYS['a'];
     const right=KEYS['ArrowRight']||KEYS['d'];
-    shipVX+=(left?-2.2:right?2.2:0)+shipVX*-0.22;
-    shipVX=Math.max(-9,Math.min(9,shipVX));
-    shipX=Math.max(18,Math.min(W-18,shipX+shipVX));
+    shipVX+=(left?-2.4:right?2.4:0)+shipVX*-0.22;
+    shipVX=Math.max(-10,Math.min(10,shipVX));
+    shipX=Math.max(22,Math.min(W-22,shipX+shipVX));
     if(invincible>0)invincible--;
 
     sectorProg++;
-    if(sectorProg>=sectorLen){
-      sector++; sectorProg=0; debris=[];
+    if(sectorProg>=SECTOR_LEN){
+      sector++; sectorProg=0; debris=[]; pulseWaves=[];
       if(sector>=SECTORS){endGame(true);return;}
+      sectorTransition=80; raf=requestAnimationFrame(loop); return;
     }
 
-    const spawnRate=Math.max(16,50-sector*10-Math.floor(sectorProg/80));
+    const spawnRate=Math.max(10,55-sector*12-Math.floor(sectorProg/55));
     if(tick%spawnRate===0)spawnDebris();
 
+    // sector 2: pulse wave obstacles
+    if(sector===2&&sectorProg>60){
+      const pwInterval=Math.max(52,120-Math.floor(sectorProg/10));
+      if(tick%pwInterval===0)spawnPulseWave();
+    }
+
+    const sy=H-34;
     debris.forEach(d=>{
       d.x+=d.vx; d.y+=d.vy; d.rot+=d.rotV;
-      if(!d.warned&&d.y>H*0.3&&Math.abs(d.x-shipX)<70){
-        d.warned=true; warnings.push({x:d.x,life:22});
+      if(!d.warned&&d.y>H*0.25&&Math.abs(d.x-shipX)<80){
+        d.warned=true; warnings.push({x:d.x,life:22,full:false});
       }
     });
     debris=debris.filter(d=>d.y<H+30);
 
-    const sy=H-30;
+    pulseWaves.forEach(pw=>{
+      pw.y+=pw.vy;
+      if(!pw.warned&&pw.y>H*0.18&&pw.y<H*0.5){
+        pw.warned=true; warnings.push({x:W/2,life:20,full:true});
+      }
+    });
+    pulseWaves=pulseWaves.filter(pw=>pw.y<H+16);
+
     if(invincible===0){
       for(const d of debris){
-        if(Math.abs(d.x-shipX)<d.size*0.65&&Math.abs(d.y-sy)<d.size*0.65){
-          ptcl(shipX,sy,'#ff6b6b',14);
+        if(Math.abs(d.x-shipX)<d.size*0.6&&Math.abs(d.y-sy)<d.size*0.6){
+          ptcl(shipX,sy,gc(),14);
           debris.splice(debris.indexOf(d),1);
           lives--; invincible=90;
           setSig(Math.max(8,36-sector*6-(3-lives)*5));
           if(lives<=0){endGame(false);return;}
           break;
+        }
+      }
+      for(const pw of pulseWaves){
+        if(Math.abs(pw.y-sy)<11){
+          const inGap=shipX>=pw.gapX&&shipX<=pw.gapX+pw.gapW;
+          if(!inGap){
+            ptcl(shipX,sy,gc(),14);
+            pulseWaves.splice(pulseWaves.indexOf(pw),1);
+            lives--; invincible=90;
+            setSig(Math.max(8,36-sector*6-(3-lives)*5));
+            if(lives<=0){endGame(false);return;}
+            break;
+          }
         }
       }
     }
@@ -1378,29 +1504,44 @@ function startGame() {
     particles=particles.filter(p=>p.life>0);
     warnings.forEach(w=>w.life--);
     warnings=warnings.filter(w=>w.life>0);
-    STARS.forEach(s=>{s.y+=s.vy*(1+sector*0.4);if(s.y>H)s.y=0;});
+    STARS.forEach(s=>{s.y+=s.vy*(1+sector*0.35);if(s.y>H)s.y=0;});
 
-    // DRAW
-    ctx.fillStyle='#010402';ctx.fillRect(0,0,W,H);
+    // ── DRAW ──
+    const col=gc(); const rgb=gcRgb();
+    ctx.fillStyle=SECTOR_BG[Math.min(sector,2)]; ctx.fillRect(0,0,W,H);
+    drawNebula();
 
+    // stars tinted per sector
     STARS.forEach(s=>{
-      ctx.fillStyle=`rgba(116,255,175,${0.1+s.s*0.25})`;
+      ctx.fillStyle=`rgba(${rgb},${0.07+s.s*0.18})`;
       ctx.fillRect(s.x,s.y,s.s>0.7?2:1,s.s>0.7?2:1);
     });
 
-    // progress bar
-    const prog=sectorProg/sectorLen;
-    ctx.fillStyle='#0d2b1c';ctx.fillRect(0,H-4,W,4);
-    ctx.fillStyle='#74ffaf';ctx.shadowColor='#74ffaf';ctx.shadowBlur=4;
-    ctx.fillRect(0,H-4,W*prog,4);
-    ctx.shadowBlur=0;
+    // pulse waves
+    pulseWaves.forEach(pw=>{
+      ctx.shadowColor=col; ctx.shadowBlur=10;
+      ctx.fillStyle=col+'bb';
+      if(pw.gapX>0)ctx.fillRect(0,pw.y-5,pw.gapX,10);
+      if(pw.gapX+pw.gapW<W)ctx.fillRect(pw.gapX+pw.gapW,pw.y-5,W-(pw.gapX+pw.gapW),10);
+      ctx.strokeStyle=col+'44'; ctx.lineWidth=1; ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.moveTo(pw.gapX,pw.y); ctx.lineTo(pw.gapX+pw.gapW,pw.y); ctx.stroke();
+      ctx.setLineDash([]); ctx.shadowBlur=0;
+    });
+
+    // warnings
+    warnings.forEach(w=>{
+      const a=w.life/22;
+      if(w.full){
+        ctx.fillStyle=`rgba(255,70,70,${a*0.13})`; ctx.fillRect(0,0,W,H);
+      } else {
+        ctx.fillStyle=`rgba(255,100,100,${a})`; ctx.fillRect(w.x-2,0,4,H*0.55);
+      }
+    });
 
     // debris
     debris.forEach(d=>{
-      ctx.save();
-      ctx.translate(d.x,d.y);ctx.rotate(d.rot);
-      ctx.fillStyle=d.type==='large'?'#ffcf6b':'#74ffaf';
-      ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=5;
+      ctx.save(); ctx.translate(d.x,d.y); ctx.rotate(d.rot);
+      ctx.fillStyle=d.col; ctx.shadowColor=d.col; ctx.shadowBlur=7;
       if(d.type==='large'){
         ctx.fillRect(-d.size/2,-d.size/3,d.size,d.size*0.65);
         ctx.fillRect(-d.size*0.2,-d.size/2,d.size*0.4,d.size);
@@ -1412,41 +1553,35 @@ function startGame() {
       ctx.restore();
     });
 
-    // warnings
-    warnings.forEach(w=>{
-      ctx.fillStyle=`rgba(255,107,107,${w.life/22})`;
-      ctx.fillRect(w.x-2,0,4,H*0.6);
-    });
-
-    // ship
-    ctx.shadowColor=invincible>0?'#ffcf6b':'#74ffaf';ctx.shadowBlur=12;
-    const showShip=invincible===0||(Math.floor(tick/6)%2===0);
-    if(showShip){
-      ctx.fillStyle=invincible>0?'#ffcf6b':'#74ffaf';
-      ctx.beginPath();
-      ctx.moveTo(shipX,sy-14);ctx.lineTo(shipX-12,sy+8);ctx.lineTo(shipX+12,sy+8);
-      ctx.fill();
-    }
-    if(tick%4<2){ctx.fillStyle='rgba(255,140,40,.8)';ctx.fillRect(shipX-4,sy+8,8,7);}
+    // satellite ship
+    if(invincible===0||(Math.floor(tick/6)%2===0)) drawSatellite(shipX,sy,invincible>0);
 
     // particles
     particles.forEach(p=>{
       const a=Math.floor((p.life/24)*255).toString(16).padStart(2,'0');
-      ctx.fillStyle=p.col+a;ctx.shadowBlur=0;
+      ctx.fillStyle=p.col+a; ctx.shadowBlur=0;
       ctx.fillRect(p.x-1.5,p.y-1.5,3,3);
     });
 
+    // progress bar
+    const prog=sectorProg/SECTOR_LEN;
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,H-5,W,5);
+    ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=6;
+    ctx.fillRect(0,H-5,W*prog,5);
+    ctx.shadowBlur=0;
+
     // HUD
-    ctx.shadowBlur=0;ctx.fillStyle='#74ffaf';
-    const fs=Math.max(10,Math.round(H*0.058));
+    const fs=Math.max(10,Math.round(H*0.056));
     ctx.font=`${fs}px Courier New`;
-    ctx.textAlign='left';
-    ctx.fillText(`LIVES ${lives}   SECTOR ${sector+1}/${SECTORS}   ${Math.round(prog*100)}%`,8,Math.round(H*0.075));
-    ctx.fillStyle='rgba(116,255,175,0.3)';
-    ctx.font=`${Math.max(9,Math.round(H*0.05))}px Courier New`;
+    ctx.textAlign='left'; ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=4;
+    const livePips='◈'.repeat(lives)+'◇'.repeat(Math.max(0,3-lives));
+    ctx.fillText(`${livePips}  ${Math.round(prog*100)}%`,8,Math.round(H*0.08));
+    ctx.fillStyle=`rgba(${rgb},0.38)`;
+    ctx.font=`${Math.max(9,Math.round(H*0.046))}px Courier New`;
     ctx.textAlign='right';
-    ctx.fillText(SECTOR_LABELS[sector]||'',W-8,Math.round(H*0.075));
-    ctx.textAlign='left';
+    ctx.fillText(SECTOR_LABELS[Math.min(sector,2)],W-8,Math.round(H*0.08));
+    ctx.textAlign='left'; ctx.shadowBlur=0;
 
     raf=requestAnimationFrame(loop);
   }

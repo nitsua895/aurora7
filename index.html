@@ -204,6 +204,19 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .dev-btn:active{background:var(--gdim);color:#010c04}
 .dev-btn.hi{border-color:var(--amber);color:var(--amber)}
 .dev-btn.hi:active{background:var(--amber);color:#1a1200}
+
+/* NFC Scan Overlay */
+#nfcScanOverlay{position:fixed;inset:0;z-index:9999;background:rgba(4,9,5,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;pointer-events:none;transition:opacity 0.28s ease}
+#nfcScanOverlay.active{opacity:1;pointer-events:all}
+#nfcScanCanvas{display:block}
+.nfc-label{font-size:11px;letter-spacing:3.5px;color:var(--g);text-transform:uppercase;animation:nfcBlink 0.7s step-end infinite}
+@keyframes nfcBlink{0%,100%{opacity:1}50%{opacity:0.22}}
+.nfc-sub{font-size:9px;letter-spacing:2px;color:var(--gdim);text-transform:uppercase;opacity:.75}
+#nfcProgressBar{width:160px;height:2px;background:rgba(116,255,175,0.1);border-radius:1px;overflow:hidden}
+#nfcProgressFill{height:100%;width:0%;background:var(--g);box-shadow:0 0 8px var(--g);transition:width 1.4s linear}
+#nfcScanOverlay.confirmed .nfc-label{color:var(--amber);animation:none}
+#nfcScanOverlay.confirmed .nfc-sub{color:var(--amber)}
+#nfcScanOverlay.confirmed #nfcProgressFill{background:var(--amber);box-shadow:0 0 10px var(--amber)}
 </style>
 </head>
 <body>
@@ -333,6 +346,14 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       <div class="hw-knob" onclick="easterEgg('knob2')"></div>
     </div>
   </div>
+</div>
+
+<!-- NFC Scan Overlay — shown on cipher URL param when mission is active -->
+<div id="nfcScanOverlay">
+  <canvas id="nfcScanCanvas" width="180" height="180"></canvas>
+  <div class="nfc-label" id="nfcScanLabel">NFC CIPHER DETECTED</div>
+  <div class="nfc-sub" id="nfcScanSub">READING ENCRYPTED TAG...</div>
+  <div id="nfcProgressBar"><div id="nfcProgressFill"></div></div>
 </div>
 
 <script>
@@ -747,6 +768,142 @@ function playStatic(ms=250) {
     src.start(); src.stop(actx.currentTime+dur);
   } catch(e){}
 }
+function hapticPattern(arr) {
+  try { if (navigator.vibrate) navigator.vibrate(arr); } catch(e){}
+}
+function playNfcScanTone() {
+  if (!actx) initBlip();
+  try {
+    const now = actx.currentTime;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(180, now);
+    o.frequency.exponentialRampToValueAtTime(1100, now + 0.88);
+    g.gain.setValueAtTime(0.055, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.98);
+    o.connect(g); g.connect(actx.destination);
+    o.start(now); o.stop(now + 1.05);
+  } catch(e){}
+}
+function playNfcConfirmTone() {
+  if (!actx) initBlip();
+  try {
+    const now = actx.currentTime;
+    [[0,440,0.05],[0.11,659,0.055],[0.23,880,0.07]].forEach(([t,freq,vol]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'square'; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, now+t);
+      g.gain.exponentialRampToValueAtTime(0.001, now+t+0.14);
+      o.connect(g); g.connect(actx.destination);
+      o.start(now+t); o.stop(now+t+0.16);
+    });
+  } catch(e){}
+}
+function playUnlockSound() {
+  if (!actx) initBlip();
+  try {
+    const now = actx.currentTime;
+    [[0,440],[0.13,554],[0.26,659],[0.42,880]].forEach(([t,freq]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'square'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.045, now+t);
+      g.gain.exponentialRampToValueAtTime(0.001, now+t+0.18);
+      o.connect(g); g.connect(actx.destination);
+      o.start(now+t); o.stop(now+t+0.21);
+    });
+  } catch(e){}
+}
+function showNfcScanAnimation(cipher, onComplete) {
+  const overlay = document.getElementById('nfcScanOverlay');
+  const canvas  = document.getElementById('nfcScanCanvas');
+  const fill    = document.getElementById('nfcProgressFill');
+  const label   = document.getElementById('nfcScanLabel');
+  const sub     = document.getElementById('nfcScanSub');
+
+  overlay.classList.remove('confirmed');
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  label.textContent = 'NFC CIPHER DETECTED';
+  sub.textContent   = 'READING ENCRYPTED TAG...';
+  overlay.classList.add('active');
+
+  hapticPattern([35, 55, 35, 55, 35]);
+  playNfcScanTone();
+
+  const ctx2d = canvas.getContext('2d');
+  const CW = 180, CH = 180, cx = 90, cy = 90;
+  let angle = 0, animId, confirmed = false;
+
+  function drawFrame() {
+    ctx2d.clearRect(0, 0, CW, CH);
+    const col    = confirmed ? '#ffcf6b' : '#74ffaf';
+    const colDim = confirmed ? 'rgba(255,207,107,0.22)' : 'rgba(116,255,175,0.2)';
+    angle += 0.038;
+
+    // Outer dashed ring
+    ctx2d.beginPath(); ctx2d.arc(cx,cy,74,0,Math.PI*2);
+    ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1;
+    ctx2d.setLineDash([7,5]); ctx2d.lineDashOffset=-angle*28; ctx2d.stroke();
+    ctx2d.setLineDash([]);
+
+    // Pulsing middle ring
+    ctx2d.beginPath(); ctx2d.arc(cx,cy,54,0,Math.PI*2);
+    ctx2d.strokeStyle=col; ctx2d.lineWidth=1;
+    ctx2d.globalAlpha=0.18+0.32*(0.5+0.5*Math.sin(angle*2.2)); ctx2d.stroke();
+    ctx2d.globalAlpha=1;
+
+    // Radar sweep sector
+    ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
+    ctx2d.arc(cx,cy,52,angle-0.65,angle); ctx2d.closePath();
+    ctx2d.fillStyle=colDim; ctx2d.fill();
+    // Sweep edge line
+    ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
+    ctx2d.lineTo(cx+Math.cos(angle)*52, cy+Math.sin(angle)*52);
+    ctx2d.strokeStyle=col; ctx2d.lineWidth=1.5; ctx2d.globalAlpha=0.85; ctx2d.stroke();
+    ctx2d.globalAlpha=1;
+
+    // Inner progress arc
+    const pct = Math.min(parseFloat(fill.style.width)||0, 100) / 100;
+    ctx2d.beginPath(); ctx2d.arc(cx,cy,30,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+    ctx2d.strokeStyle=col; ctx2d.lineWidth=3;
+    ctx2d.shadowColor=col; ctx2d.shadowBlur=5; ctx2d.stroke(); ctx2d.shadowBlur=0;
+
+    // Center dot
+    ctx2d.beginPath(); ctx2d.arc(cx,cy,confirmed?6:4,0,Math.PI*2);
+    ctx2d.fillStyle=col; ctx2d.shadowColor=col; ctx2d.shadowBlur=confirmed?12:6;
+    ctx2d.fill(); ctx2d.shadowBlur=0;
+
+    // Corner tick marks
+    [[cx-74,cy-74,1,1],[cx+74,cy-74,-1,1],[cx-74,cy+74,1,-1],[cx+74,cy+74,-1,-1]].forEach(([x,y,dx,dy])=>{
+      ctx2d.beginPath(); ctx2d.moveTo(x,y); ctx2d.lineTo(x+dx*10,y);
+      ctx2d.moveTo(x,y); ctx2d.lineTo(x,y+dy*10);
+      ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1; ctx2d.globalAlpha=0.6; ctx2d.stroke();
+      ctx2d.globalAlpha=1;
+    });
+
+    animId = requestAnimationFrame(drawFrame);
+  }
+  animId = requestAnimationFrame(drawFrame);
+
+  setTimeout(()=>{ fill.style.transition='width 1.4s linear'; fill.style.width='100%'; }, 30);
+
+  setTimeout(()=>{
+    confirmed = true;
+    overlay.classList.add('confirmed');
+    label.textContent = 'CIPHER VERIFIED';
+    sub.textContent   = cipher.toUpperCase();
+    hapticPattern([60, 35, 120]);
+    playNfcConfirmTone();
+    setTimeout(()=>{
+      overlay.classList.remove('active');
+      setTimeout(()=>{
+        cancelAnimationFrame(animId);
+        overlay.classList.remove('confirmed');
+        onComplete();
+      }, 300);
+    }, 700);
+  }, 1500);
+}
 
 // ═══════════════════════════════════════
 // WAYPOINT / MAPS LINK
@@ -1143,13 +1300,26 @@ function checkCipherParam() {
     const params = new URLSearchParams(location.search);
     const cipher = params.get('cipher');
     if (!cipher || busy) return;
-    addLine('> NFC TAG READ — CIPHER EXTRACTED', 'sys');
-    blip(720, 0.1); pulse(20);
-    setTimeout(()=>{
-      const inp = document.getElementById('inp');
-      inp.value = cipher.toUpperCase();
-      submit();
-    }, 500);
+    // Strip param so a page refresh doesn't re-trigger
+    history.replaceState(null, '', location.pathname + (location.hash||''));
+    if (!actx) initBlip();
+    if (stage >= 2) {
+      // Mission already active — show dramatic scan animation
+      showNfcScanAnimation(cipher, ()=>{
+        const inp = document.getElementById('inp');
+        inp.value = cipher.toUpperCase();
+        submit();
+      });
+    } else {
+      // First scan — simple flow
+      addLine('> NFC TAG READ — CIPHER EXTRACTED', 'sys');
+      blip(720, 0.1); pulse(20);
+      setTimeout(()=>{
+        const inp = document.getElementById('inp');
+        inp.value = cipher.toUpperCase();
+        submit();
+      }, 500);
+    }
   } catch(e){}
 }
 
@@ -1223,7 +1393,7 @@ async function submit() {
   // SECTOR 7
   if (stage===1 && val===CODES.S7) {
     setSig(63);
-    blip(880,0.15); pulse(30);
+    playUnlockSound(); hapticPattern([50,35,110]);
     addLine('// CHAPTER 02 — THE MONUMENT', 'chapter');
     addLine(ART.rocket, 'ascii');
     await W8(500);
@@ -1240,7 +1410,7 @@ async function submit() {
   // DEPOT
   if (stage===2 && val===CODES.DEPOT) {
     setSig(50);
-    blip(880,0.15); pulse(30);
+    playUnlockSound(); hapticPattern([50,35,110]);
     addLine('// CHAPTER 03 — RESUPPLY', 'chapter');
     await W8(200);
     await playSeq(SCRIPT.depot_confirm, 'aria', 360);
@@ -1255,7 +1425,7 @@ async function submit() {
   // OUTPOST
   if (stage===3 && val===CODES.OUTPOST) {
     setSig(36);
-    blip(880,0.15); pulse(30);
+    playUnlockSound(); hapticPattern([50,35,110]);
     addLine('// CHAPTER 04 — THE OUTPOST', 'chapter');
     addLine(ART.outpost, 'ascii');
     await W8(400);
@@ -1292,7 +1462,7 @@ async function submit() {
   // ISLAND TREE — stage 6 → 7
   if (stage===6 && val===CODES.ISLAND) {
     setSig(12);
-    blip(880,0.15); pulse(30);
+    playUnlockSound(); hapticPattern([50,35,110]);
     addLine('// CHAPTER 06b — FINAL APPROACH', 'chapter');
     addLine('> NFC TAG READ — WAYPOINT CONFIRMED', 'sys');
     await W8(600);

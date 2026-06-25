@@ -278,7 +278,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       </div>
 
       <div class="badge gps warn" id="gpsBadge">◈ ACQUIRING POSITION ...</div>
-      <div class="badge pad" id="padBadge">◈ CONTROLLER CONNECTED</div>
+      <div class="badge pad" id="padBadge"><svg width="13" height="9" viewBox="0 0 13 9" fill="currentColor" style="vertical-align:middle;margin-right:4px"><rect x="0" y="2" width="4" height="5" rx="1.5"/><rect x="9" y="2" width="4" height="5" rx="1.5"/><rect x="3.5" y="0" width="6" height="9" rx="2"/><rect x="5.5" y="1.5" width="1" height="3" rx=".4"/><rect x="4.5" y="2.5" width="3" height="1" rx=".4"/><circle cx="9.5" cy="3" r=".7"/><circle cx="10.5" cy="4.5" r=".7"/></svg>CONTROLLER CONNECTED</div>
 
       <div class="feed" id="feed"></div>
 
@@ -404,7 +404,8 @@ const LOCK_CODE = 'CINDER'; // matches dossier: "look at who sent this"
     if (new URLSearchParams(location.search).has('cipher')) {
       const io = document.getElementById('introOverlay');
       if (io) io.remove();
-      boot(); // async — completes before checkCipherParam fires
+      // Defer until after all let/const declarations are initialized
+      setTimeout(boot, 0);
     }
     return;
   }

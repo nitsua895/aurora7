@@ -1641,8 +1641,8 @@ function startGame() {
   let sector=0,sectorProg=0,sectorLives=3,sectorFails=0;
   const MAX_FAILS=3;
   let sectorTransition=0,sectorRetryTimer=0;
-  let tick=0,done=false;
-  let shipX=W/2,shipVX=0,invincible=0;
+  let tick=0,done=false,lastTs=0,spawnAccum=0;
+  let shipX=W/2,invincible=0;
   let debris=[],particles=[],shipTrail=[];
   const STARS=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.3+Math.random()*0.8,s:Math.random()}));
   let raf;
@@ -1767,13 +1767,16 @@ function startGame() {
   }
 
   // ── GAME LOOP ──
-  function loop(){
+  function loop(ts){
     if(done)return;
+    // Delta-time: normalize to 60fps so 120Hz displays run at same game speed
+    const dt = lastTs ? Math.min((ts - lastTs) / 16.667, 2.5) : 1;
+    lastTs = ts;
     tick++;
 
     // Sector transition flash + label
     if(sectorTransition>0){
-      sectorTransition--;
+      sectorTransition=Math.max(0,sectorTransition-dt);
       const col=gc(),rgb=gcRgb();
       ctx.fillStyle=SECTOR_BG[Math.min(sector,4)]; ctx.fillRect(0,0,W,H);
       drawNebula(); drawPlanet();
@@ -1794,7 +1797,7 @@ function startGame() {
 
     // Sector retry screen
     if(sectorRetryTimer>0){
-      sectorRetryTimer--;
+      sectorRetryTimer=Math.max(0,sectorRetryTimer-dt);
       const col=gc(),rgb=gcRgb();
       ctx.fillStyle=SECTOR_BG[Math.min(sector,4)]; ctx.fillRect(0,0,W,H);
       drawNebula(); drawPlanet();
@@ -1810,34 +1813,37 @@ function startGame() {
       const rem=MAX_FAILS-sectorFails;
       ctx.fillText(`RETRYING... ${rem} ATTEMPT${rem===1?'':'S'} REMAINING`,W/2,H/2+14);
       ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
-      if(sectorRetryTimer===0) resetSectorState();
+      if(sectorRetryTimer<=0) resetSectorState();
       raf=requestAnimationFrame(loop); return;
     }
 
-    // Touch: smooth lerp toward finger position
+    // Touch: frame-rate-independent lerp (same feel at 60Hz and 120Hz)
     if(touchX!==null){
-      shipX=Math.max(28,Math.min(W-28,shipX+(touchX-shipX)*0.24));
+      const lerpF = 1 - Math.pow(0.76, dt);
+      shipX=Math.max(28,Math.min(W-28,shipX+(touchX-shipX)*lerpF));
     }
-    if(invincible>0)invincible--;
+    if(invincible>0) invincible=Math.max(0,invincible-dt);
 
     // Engine trail
     shipTrail.unshift({x:shipX,y:sy});
     if(shipTrail.length>14)shipTrail.pop();
 
-    sectorProg++;
+    sectorProg+=dt;
     if(sectorProg>=SECTOR_LEN){
-      sector++;sectorProg=0;sectorLives=3;debris=[];particles=[];shipTrail=[];
+      sector++;sectorProg=0;sectorLives=3;debris=[];particles=[];shipTrail=[];spawnAccum=0;
       if(sector>=SECTORS){endGame(true);return;}
       sectorTransition=80; raf=requestAnimationFrame(loop); return;
     }
 
+    // Time-based spawn accumulator (frame-rate independent)
+    spawnAccum+=dt;
     const spawnRate=Math.max(12,70-sector*11-Math.floor(sectorProg/80));
-    if(tick%spawnRate===0)spawnDebris();
+    if(spawnAccum>=spawnRate){ spawnDebris(); spawnAccum-=spawnRate; }
 
     // Scatter large debris at midfield
     const toScatter=[];
     debris.forEach(d=>{
-      d.x+=d.vx; d.y+=d.vy; d.rot+=d.rotV;
+      d.x+=d.vx*dt; d.y+=d.vy*dt; d.rot+=d.rotV*dt;
       if(!d.scattered&&d.type==='large'&&d.y>H*0.5){d.scattered=true;toScatter.push(d);}
     });
     toScatter.forEach(d=>scatterDebris(d));
@@ -1862,9 +1868,9 @@ function startGame() {
       }
     }
 
-    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
+    particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;});
     particles=particles.filter(p=>p.life>0);
-    STARS.forEach(s=>{s.y+=s.vy*(1+sector*0.28);if(s.y>H)s.y=0;});
+    STARS.forEach(s=>{s.y+=s.vy*(1+sector*0.28)*dt;if(s.y>H)s.y=0;});
 
     // ── DRAW ──
     const col=gc(),rgb=gcRgb();

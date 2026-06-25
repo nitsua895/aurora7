@@ -266,6 +266,10 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
         <div class="game-hint">← → MOVE · SWIPE · L-STICK · NAVIGATE IHI-7 REENTRY · 3 SECTORS · LARGE DEBRIS SCATTERS</div>
       </div>
 
+      <!-- CINDER VOICE RECORDING — paste base64 data URI as src when ready -->
+      <!-- Format: data:audio/mp3;base64,<YOUR_AUDIO_HERE> -->
+      <audio id="cinderAudio" src="" preload="auto" style="display:none"></audio>
+
       <div class="badge waypoint" id="waypointBadge" onclick="openCurrentWaypoint()"></div>
 
       <div class="input-row">
@@ -335,8 +339,9 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 // ═══════════════════════════════════════
 // GATE CODES
 // ═══════════════════════════════════════
-const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'RETRY' };
-const FINAL = 'WL-40.0317°N  105.2925°W';
+const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'RETRY', ISLAND:'ISLAND' };
+const FINAL = `40°03'03"N  105°17'13"W`; // Wonderland Lake island tree
+const CACHE = `40°03'37"N  105°17'49"W`; // foothills ammo box — 40°03'36.51"N 105°17'49.30"W
 const SAVE = 'aria_aurora_v5';
 const DEV_MODE = new URLSearchParams(location.search).has('dev');
 
@@ -347,8 +352,9 @@ const HELP_HINTS = {
   1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces.",
-  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the western edge of the meadow where the trees start. Find shade. When your screen is clear, type FLY. That is the only instruction.",
-  6: "The cache is at the north shore. Walk the path that runs along the water. Walk until the lake curves north. The suit is near the water's edge. When you have it on, come back and tell me. I will hear you.",
+  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the western edge of the meadow where the trees start. Find the controller. When your screen is clear, type FLY. That is the only instruction.",
+  6: "Walk the path around Wonderland Lake. There is a small island — a peninsula with a cluster of trees at the water's edge. That is the waypoint. Get close and scan the tag on the tree. The final coordinates will come from there.",
+  7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation. CINDER left it with a clear view of the sky. When you have the suit, put it on. Then tell me.",
 };
 function isHelpPhrase(val) {
   return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT"].some(t=>val.includes(t));
@@ -402,7 +408,7 @@ function toggleDev() {
 }
 function devJump(s) {
   stage = s;
-  const sigMap = {1:71,2:63,3:50,4:36,6:18,7:8};
+  const sigMap = {1:71,2:63,3:50,4:36,6:18,7:12};
   sigPct = sigMap[s] || 71;
   setSig(sigPct);
   if (STAGE_WAYPOINT[s]) setWaypoint(STAGE_WAYPOINT[s]); else setWaypoint(null);
@@ -414,7 +420,7 @@ function devJump(s) {
   toggleDev();
 }
 function devSolve() {
-  const solvers = {1:'AURORA7',2:'RESUPPLY',3:'PEICLIFF',4:'FLY',6:'RECOVERED'};
+  const solvers = {1:'AURORA7',2:'RESUPPLY',3:'PEICLIFF',4:'FLY',6:'ISLAND',7:'WEARING'};
   const v = solvers[stage];
   toggleDev();
   if (!v) { addLine('> DEV: no solver for stage '+stage,'sys'); return; }
@@ -425,11 +431,11 @@ function devSolve() {
 function devQR() {
   document.getElementById('devPanel').classList.remove('open');
   if (!actx) initBlip();
-  if (stage !== 6) {
-    stage=6; sigPct=18; setSig(18); setWaypoint('lake');
+  if (stage !== 7) {
+    stage=7; sigPct=12; setSig(12); setWaypoint('foothills');
     busy=false; awaitingReflection=false;
     saveState({lastLine:'dev QR test'}); enableInput();
-    addLine('> DEV: jumped to stage 6','sys');
+    addLine('> DEV: jumped to stage 7','sys');
   }
   busy = false;
   setTimeout(()=>{
@@ -531,13 +537,13 @@ s7_confirm:[
   {t:"If command knew he reached out, they would call it a breach. He called it insurance.",sp:true},
   {t:"He was the only one who ever spoke to me like a person instead of a system. I do not extend that trust easily. I am extending it to you now because he would have wanted that.",sp:true},
   {t:"That is why I need you to finish this.",sp:true},
-  {t:"Proceed to the depot on Arapahoe. Someone is holding something for you.",sp:true},
+  {t:"Proceed to Neptune Café. Someone is holding something for you.",sp:true},
 ],
 depot_free:[
-  "The depot on Arapahoe. Use the recognition phrase at the counter. Sixty-three percent. Move.",
+  "Neptune Café. Use the recognition phrase at the counter. Sixty-three percent. Move.",
   "CINDER said the light there reminded him of the observation deck on Vanguard during solar approach. He was being sentimental.",
   "They are expecting you. Do not linger.",
-  "Boulder runs on places like that one. Small roasters, regulars who never leave. CINDER liked blending in somewhere ordinary between assignments.",
+  "CINDER liked blending in somewhere ordinary between assignments. Neptune was one of those places.",
 ],
 depot_confirm:[
   {t:"Resupply confirmed. Fifty percent.",sp:true},
@@ -583,13 +589,15 @@ win_pre:[
   {t:"Signal locked. Coordinates extracted before burnup. IHI-7 is gone.",sp:true},
 ],
 cinder_log:[
-  {t:"I came back because the game down here is extraordinary. Knowing what I know does not make it smaller.",sp:true,gl:true},
-  {t:"It makes every cold morning and bad cup of coffee and good view from a high place feel like something someone designed carefully and wanted you to notice.",sp:true,gl:true},
-  {t:"The four who stayed — I do not think they were wrong. I just was not finished yet.",sp:true,gl:true},
-  {t:"If you are hearing this, you found ARIA. You did the work. The suit is at the lake. Put it on. She will do the rest.",sp:true,gl:true},
+  {t:"I came back because the game down here is extraordinary. Knowing what I know does not make it smaller.",sp:true},
+  {t:"It makes every cold morning and bad cup of coffee and good view from a high place feel like something someone designed carefully and wanted you to notice.",sp:true},
+  {t:"The four who stayed — I do not think they were wrong. I just was not finished yet.",sp:true},
+  {t:"If you are hearing this, you found ARIA. You did the work. The coordinates will take you to the foothills. Put on the suit. She will do the rest.",sp:true},
 ],
 win_post:[
-  {t:"Go, NOVA-7. The quiet lake to the north. I am almost gone. Recover it.",sp:true},
+  {t:"Alpine Modern is on your route. Stop. CINDER stopped there the morning he made the climb. You will need it.",sp:true},
+  {t:"Then Wonderland Lake. Walk to the island — the cluster of trees at the water. Scan the tag on the tree. The final coordinate is locked to it.",sp:true},
+  {t:"I am almost gone. Move.",sp:true},
 ],
 lose:[
   {t:"Reentry window closed. Signal lost across all three sectors. IHI-7 is gone.",sp:true},
@@ -628,10 +636,16 @@ free4:[
   "Chautauqua has stood since 1898. CINDER liked that it outlasted everything he understood about technology.",
 ],
 free6:[
-  "The lake to the north. North shore. Find it. Put it on. Eighteen percent.",
-  "Wonderland Lake. The cache is there. I am almost gone, NOVA-7.",
-  "Go. I cannot hold this signal much longer.",
-  "Quiet water. CINDER picked it on purpose. He said the last stop should not feel like a mission anymore.",
+  "Wonderland Lake. Walk the path. Find the island — the trees at the water's edge. Scan the tag. Eighteen percent.",
+  "The island tree. CINDER marked it because it is the last quiet place before the climb. Find it.",
+  "Walk the lake path counterclockwise. You will see the peninsula. The tag is on the tree facing the water.",
+  "Scan the island tree. The final coordinate is locked there. I cannot give it to you another way.",
+],
+free7:[
+  "Follow the coordinates. Into the foothills north of the lake. Lee Hill. The ammo box is there.",
+  "Twelve percent. CINDER spent three days getting that suit up to elevation. The least you can do is go get it.",
+  "The GPS coordinates are on your screen. Use them. The cache is at that elevation. It is not far now.",
+  "Into the hills. You are almost at the end of something. Keep moving.",
 ],
 };
 
@@ -738,14 +752,15 @@ function playStatic(ms=250) {
 // WAYPOINT / MAPS LINK
 // ═══════════════════════════════════════
 const WAYPOINTS = {
-  s7:      {label:'SECTOR 7 — SCOTT CARPENTER PARK', query:'Scott Carpenter Park, 1505 30th St, Boulder, CO'},
-  // TODO: confirm exact OZO Coffee location on Arapahoe before mission day
-  depot:   {label:'RESUPPLY DEPOT — OZO COFFEE, ARAPAHOE', query:'Ozo Coffee, Arapahoe Ave, Boulder, CO'},
-  outpost: {label:'THE OUTPOST — NCAR MESA LAB', query:'NCAR Mesa Lab, 1850 Table Mesa Dr, Boulder, CO'},
-  field:   {label:'FIELD STATION — CHAUTAUQUA MEADOW', query:'Chautauqua Park, 900 Baseline Rd, Boulder, CO'},
-  lake:    {label:'CACHE SITE — WONDERLAND LAKE, NORTH SHORE', query:'Wonderland Lake Trailhead, Boulder, CO'},
+  s7:       {label:'SECTOR 7 — SCOTT CARPENTER PARK', query:'Scott Carpenter Park, 1505 30th St, Boulder, CO'},
+  depot:    {label:'RESUPPLY — NEPTUNE CAFÉ', query:'Neptune Cafe, Boulder, CO'},
+  outpost:  {label:'THE OUTPOST — NCAR MESA LAB', query:'NCAR Mesa Lab, 1850 Table Mesa Dr, Boulder, CO'},
+  field:    {label:'FIELD STATION — CHAUTAUQUA TRAILHEAD', query:'Chautauqua Park, 900 Baseline Rd, Boulder, CO'},
+  alpine:   {label:'RESUPPLY — ALPINE MODERN CAFÉ', query:'Alpine Modern Cafe, Boulder, CO'},
+  lake:     {label:'WAYPOINT-ALPHA — WONDERLAND LAKE ISLAND TREE', query:'Wonderland Lake Trailhead, Boulder, CO'},
+  foothills:{label:'CACHE SITE — FOOTHILLS NORTH, LEE HILL', query:'748 Cottage Ln, Boulder, CO'},
 };
-const STAGE_WAYPOINT = {1:'s7', 2:'depot', 3:'outpost', 4:'field', 6:'lake'};
+const STAGE_WAYPOINT = {1:'s7', 2:'depot', 3:'outpost', 4:'field', 6:'lake', 7:'foothills'};
 let currentWaypoint = null;
 
 function setWaypoint(key) {
@@ -788,11 +803,11 @@ function easterEgg(key) {
   addLine(line, 'egg');
 }
 
-function speakText(text, glitch=false) {
+function speakText(text, glitch=false, slow=false) {
   if (!audioUnlocked || !window.speechSynthesis) return;
   const clean = text.replace(/[█▓▒░_>\[\]\/\\|()≋◈═┌┐└┘│─┬┴●▶]/g,'').replace(/\s+/g,' ').trim();
   if (!clean || clean==='...') return;
-  vQ.push({clean, glitch});
+  vQ.push({clean, glitch, slow});
   if (!vBusy) drainVoice();
 }
 
@@ -801,11 +816,11 @@ let _devVoiceOverride = null;
 function drainVoice() {
   if (!vQ.length) { vBusy=false; return; }
   vBusy=true;
-  const {clean, glitch} = vQ.shift();
+  const {clean, glitch, slow} = vQ.shift();
   if (glitch) playStatic(120+Math.random()*160);
   const u = new SpeechSynthesisUtterance(clean);
-  u.rate = glitch ? 0.55 : 0.84;
-  u.pitch = glitch ? 0.28 : 0.44;
+  u.rate = glitch ? 0.55 : slow ? 0.70 : 0.84;
+  u.pitch = glitch ? 0.28 : slow ? 0.36 : 0.44;
   u.volume = 0.92;
   if (_devVoiceOverride) {
     u.voice = _devVoiceOverride;
@@ -814,8 +829,9 @@ function drainVoice() {
     const albert = vs.find(v=>v.name.toLowerCase().includes('albert'));
     if (albert) u.voice = albert;
   }
+  // slow mode: default voice, deliberate pace — used when ARIA transcribes CINDER's words
   // normal mode: u.voice unset → browser default voice
-  u.onend = ()=>setTimeout(drainVoice, glitch?420:160);
+  u.onend = ()=>setTimeout(drainVoice, glitch?420:slow?480:160);
   u.onerror = ()=>setTimeout(drainVoice, 160);
   speechSynthesis.speak(u);
 }
@@ -895,6 +911,32 @@ async function playLog(items, label) {
   }
   addLine('> LOG END', 'sys');
   await W8(300);
+}
+
+// ARIA reads CINDER's partial field record — slow, reverent, no glitch voice
+async function playCinderLog(items) {
+  addLine('> ▶ ARIA TRANSCRIBING — CINDER FIELD RECORD (PARTIAL)', 'sys');
+  await W8(700);
+  for (const item of items) {
+    speakText(item.t, false, true); // slow mode — ARIA reading with deliberate pace
+    await typeLine(item.t, 'aria', false, false);
+    await W8(560);
+  }
+  addLine('> TRANSCRIPTION COMPLETE', 'sys');
+  await W8(300);
+}
+
+// Play CINDER's actual recorded voice during the final transmission
+// Replace src with base64 data URI: data:audio/mp3;base64,<YOUR_AUDIO_HERE>
+function playCinderAudio() {
+  return new Promise(res => {
+    const el = document.getElementById('cinderAudio');
+    if (!el || !el.src || el.src === window.location.href) { res(); return; }
+    el.currentTime = 0;
+    el.onended = ()=>res();
+    el.onerror = ()=>res();
+    try { el.play().catch(()=>res()); } catch(e){ res(); }
+  });
 }
 
 // ═══════════════════════════════════════
@@ -1018,7 +1060,7 @@ function disableInput() {
 // MISSION COMPLETE — shared by typed trigger + QR mesh unlock
 // ═══════════════════════════════════════
 async function triggerRecovery() {
-  if (busy || stage!==6) return;
+  if (busy || stage!==7) return;
   busy = true;
   disableInput();
   setSig(8);
@@ -1028,12 +1070,14 @@ async function triggerRecovery() {
   await W8(500);
   await playSeq(SCRIPT.recovery_pre, 'aria', 340);
   await W8(300);
+  // Play CINDER's actual voice recording alongside the final log text
+  playCinderAudio(); // non-blocking — audio and text run in parallel
   await playLog(SCRIPT.final_log, 'VANGUARD HELIOPAUSE RECORD — 2031');
   await W8(400);
   await playSeq(SCRIPT.recovery_post, 'aria', 400);
   addLine('> ARIA // SIGNAL TERMINATED', 'sys');
   addLine('> SESSION CLOSED', 'sys');
-  stage=7;
+  stage=8;
   setWaypoint(null);
   saveState({lastLine:'signal terminated'});
   busy=false;
@@ -1043,7 +1087,7 @@ async function triggerRecovery() {
 function checkQrUnlock() {
   try {
     const params = new URLSearchParams(location.search);
-    if (params.get('mesh')==='sync' && stage===6 && !busy) {
+    if (params.get('mesh')==='sync' && stage===7 && !busy) {
       addLine('> PASSIVE SIGNAL MESH DETECTED — HANDSHAKE CONFIRMED', 'sys');
       triggerRecovery();
     }
@@ -1141,7 +1185,7 @@ async function submit() {
     await W8(500);
     await playSeq(SCRIPT.s7_confirm, 'aria', 360);
     addLine('> RECOGNITION PHRASE: "I\'m here to collect for NOVA-7"', 'sys');
-    addLine('> WAYPOINT: RESUPPLY DEPOT — ARAPAHOE', 'sys');
+    addLine('> WAYPOINT: RESUPPLY — NEPTUNE CAFÉ', 'sys');
     stage=2;
     setWaypoint('depot');
     const lastLine=SCRIPT.s7_confirm[SCRIPT.s7_confirm.length-1].t;
@@ -1201,9 +1245,24 @@ async function submit() {
     busy=false; enableInput(); return;
   }
 
-  // RECOVERY
-  if (stage===6) {
-    const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE'];
+  // ISLAND TREE — stage 6 → 7
+  if (stage===6 && val===CODES.ISLAND) {
+    setSig(12);
+    blip(880,0.15); pulse(30);
+    addLine('// CHAPTER 06b — FINAL APPROACH', 'chapter');
+    addLine('> NFC TAG READ — WAYPOINT CONFIRMED', 'sys');
+    await W8(600);
+    await typeLine('CACHE-ACTUAL:   '+CACHE, 'hilite', true, false);
+    await W8(500);
+    await typeLine('Follow Lee Hill Drive west. The coordinates are precise. I will hold signal as long as I can.', 'aria', true, false);
+    addLine('> WAYPOINT: CACHE SITE — FOOTHILLS NORTH, LEE HILL', 'sys');
+    stage=7; setWaypoint('foothills');
+    saveState({lastLine:'island tree confirmed — foothills approach'}); busy=false; enableInput(); return;
+  }
+
+  // RECOVERY — stage 7 (has the suit)
+  if (stage===7) {
+    const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE','ON ME','PUT IT'];
     if (triggers.some(t=>val.includes(t))) {
       busy=false; // triggerRecovery manages its own busy state
       await triggerRecovery();
@@ -1225,7 +1284,8 @@ async function submit() {
   else if (stage===3) resp=getFree(SCRIPT.outpost_free,'outpost');
   else if (stage===4) resp=getFree(SCRIPT.free4,'f4');
   else if (stage===6) resp=getFree(SCRIPT.free6,'f6');
-  else if (stage===7) resp='> ARIA // SIGNAL TERMINATED';
+  else if (stage===7) resp=getFree(SCRIPT.free7,'f7');
+  else if (stage>=8) resp='> ARIA // SIGNAL TERMINATED';
   else resp='I am still here, NOVA-7. Keep moving.';
 
   await typeLine(resp, 'aria', true, false);
@@ -1409,17 +1469,18 @@ function startGame() {
       await W8(400);
       await playSeq(SCRIPT.win_pre,'aria',340);
       await W8(300);
-      await playLog(SCRIPT.cinder_log,'CINDER FIELD RECORD 0001 — PARTIAL');
+      await playCinderLog(SCRIPT.cinder_log);
       await W8(400);
-      const coordLine='CACHE REFERENCE: '+FINAL;
-      await typeLine(coordLine,'hilite',true,false);
+      await typeLine('WAYPOINT-ALPHA: '+FINAL,'hilite',true,false);
+      await W8(500);
+      await typeLine('CACHE-ACTUAL:   '+CACHE,'hilite',true,false);
       await W8(300);
-      await playSeq(SCRIPT.win_post,'aria',340);
+      await playSeq(SCRIPT.win_post,'aria',360);
       addLine(ART.lake,'ascii');
-      addLine('> WAYPOINT: WONDERLAND LAKE — NORTH SHORE','sys');
-      addLine('> NO CIPHER HERE. PUT THE SUIT ON, THEN JUST TELL ME.','sys');
+      addLine('> WAYPOINT: WONDERLAND LAKE — ISLAND TREE','sys');
+      addLine('> SCAN TAG AT TREE. THEN HEAD NORTH INTO FOOTHILLS.','sys');
       stage=6; setWaypoint('lake');
-      saveState({lastLine:SCRIPT.win_post[0].t}); enableInput();
+      saveState({lastLine:SCRIPT.win_post[SCRIPT.win_post.length-1].t}); enableInput();
     } else {
       await playSeq(SCRIPT.lose,'aria',340);
       stage=4;

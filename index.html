@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#090d09;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Courier New',monospace}
-:root{--g:#74ffaf;--g2:#3aff8a;--gdim:#4fcf8e;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b;--cyan:#6fe9ff;--violet:#c98bff;--rose:#ff8fb3}
+:root{--g:#84ffbe;--g2:#3aff8a;--gdim:#73d6a2;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b;--cyan:#6fe9ff;--violet:#c98bff;--rose:#ff8fb3;--silver:#d3dbe1}
 
 .device{
   position:relative;width:min(800px,100vw);height:min(680px,100vh);
@@ -19,21 +19,21 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   display:flex;flex-direction:column;gap:8px;
 }
 .device-top{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
-.brand{font-size:9px;letter-spacing:3px;color:#3c5c40;text-transform:uppercase;display:inline-flex;align-items:center;gap:4px}
-.aurora-mark{color:var(--amber);opacity:.85;flex-shrink:0}
+.brand{font-size:9px;letter-spacing:3px;color:#7fae8a;text-transform:uppercase;display:inline-flex;align-items:center;gap:4px}
+.aurora-mark{color:var(--silver);opacity:.95;flex-shrink:0;filter:drop-shadow(0 0 3px rgba(211,219,225,.45))}
 .leds{display:flex;gap:6px}
 .led{width:7px;height:7px;border-radius:50%;transition:all .5s}
 
 .crt-wrap{
   flex:1;position:relative;border-radius:16px;overflow:hidden;
   background:radial-gradient(ellipse at 50% 44%,#040d06 0%,#020503 74%);
-  box-shadow:inset 0 0 140px rgba(0,0,0,.98),0 0 22px rgba(80,255,150,.055);
+  box-shadow:inset 0 0 116px rgba(0,0,0,.9),0 0 22px rgba(80,255,150,.055);
 }
 .crt-glass{
   position:absolute;inset:0;z-index:20;pointer-events:none;border-radius:16px;
   background:radial-gradient(ellipse 145% 58% at 25% 10%,rgba(255,255,255,.047) 0%,transparent 50%),
     radial-gradient(ellipse 44% 26% at 80% 92%,rgba(255,255,255,.015) 0%,transparent 46%),
-    radial-gradient(ellipse 88% 88% at 50% 50%,transparent 50%,rgba(0,0,0,.4) 100%);
+    radial-gradient(ellipse 92% 92% at 50% 50%,transparent 56%,rgba(0,0,0,.28) 100%);
 }
 .crt-glare{
   position:absolute;inset:0;z-index:22;pointer-events:none;border-radius:16px;
@@ -44,15 +44,15 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 @keyframes glareDrift{0%,100%{opacity:.85;transform:translate(0,0)}50%{opacity:1;transform:translate(-2%,1.5%)}}
 .crt-scanlines{
   position:absolute;inset:0;z-index:19;pointer-events:none;border-radius:16px;
-  background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0,rgba(0,0,0,.18) 1px,transparent 1px,transparent 3px);
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.11) 0,rgba(0,0,0,.11) 1px,transparent 1px,transparent 3px);
 }
 .screen{position:relative;z-index:10;height:100%;display:flex;flex-direction:column;padding:11px 13px 8px;animation:flicker 11s infinite}
 @keyframes flicker{0%,92%,94.5%,97%,100%{opacity:1}93%{opacity:.88}95%{opacity:.93}}
 
 .hrow{
   display:flex;justify-content:space-between;align-items:center;
-  font-size:10px;letter-spacing:2px;color:var(--gdim);
-  border-bottom:1px solid #1f4a30;padding-bottom:6px;margin-bottom:6px;text-transform:uppercase;
+  font-size:10px;letter-spacing:2px;color:#9bcfaf;
+  border-bottom:1px solid #2d6040;padding-bottom:6px;margin-bottom:6px;text-transform:uppercase;
 }
 .sig-pips{display:flex;gap:2px}
 .pip{width:5px;height:10px;background:#1a3d27;border-radius:1px;transition:all .5s}
@@ -72,17 +72,17 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
 .feed{
   flex:1;overflow-y:auto;overflow-x:hidden;
-  font-size:13px;line-height:1.7;color:var(--g);padding-right:4px;
+  font-size:13.5px;line-height:1.72;color:var(--g);padding-right:4px;
 }
 .feed::-webkit-scrollbar{width:3px}
 .feed::-webkit-scrollbar-thumb{background:var(--gdim)}
 
 .line{margin-bottom:5px;white-space:pre-wrap;word-break:break-word}
-.line.sys{color:var(--gdim);font-size:11px;letter-spacing:1px}
+.line.sys{color:#86dcad;font-size:11.5px;letter-spacing:1px}
 .line.me{color:var(--amber)}
-.line.aria{color:var(--g);text-shadow:0 0 8px rgba(80,255,160,.3)}
+.line.aria{color:#9affca;text-shadow:0 0 6px rgba(120,255,180,.28)}
 .line.glitch{color:var(--violet);opacity:.9;text-shadow:0 0 12px rgba(201,139,255,.5);letter-spacing:.5px}
-.line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.78}
+.line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.9}
 .line.chapter{color:var(--cyan);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px;text-shadow:0 0 8px rgba(111,233,255,.4)}
 .line.hilite{color:var(--amber);font-weight:bold;letter-spacing:1px;text-shadow:0 0 12px rgba(255,207,107,.65)}
 .line.warn{color:var(--red)}
@@ -106,7 +106,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .input-row input:focus{border-color:var(--g)}
 .input-row input::placeholder{color:var(--gdim);opacity:.5}
 .send-btn{
-  background:transparent;border:1px solid var(--gdim);color:var(--gdim);
+  background:rgba(116,255,175,.07);border:1px solid var(--g);color:var(--g);
   font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;
   padding:8px 12px;cursor:pointer;text-transform:uppercase;border-radius:2px;
   transition:opacity .2s;-webkit-appearance:none;
@@ -115,17 +115,17 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
 .device-bottom{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
 .hw-btns{display:flex;gap:7px;align-items:center}
-.hw-btn{height:10px;width:28px;background:linear-gradient(180deg,#1a201a,#0f130f);border-radius:5px;border:1px solid #080b08;cursor:pointer;transition:transform .15s}
+.hw-btn{height:10px;width:28px;background:linear-gradient(180deg,#2c352c,#151a15);border-radius:5px;border:1px solid #0a0e0a;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);cursor:pointer;transition:transform .15s}
 .hw-btn.md{width:52px}
 .hw-btn:active{transform:scale(.92)}
-.hw-knob{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 33% 30%,#222922,#101310);border:1px solid #080908;box-shadow:0 1px 4px rgba(0,0,0,.7);cursor:pointer;transition:transform .15s}
+.hw-knob{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 33% 30%,#32392f,#161a14);border:1px solid #0a0b0a;box-shadow:0 1px 4px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.1);cursor:pointer;transition:transform .15s}
 .hw-knob:active{transform:scale(.88) rotate(25deg)}
 .loc-dot{width:8px;height:8px;border-radius:50%;transition:all .6s;background:#1a2a1a}
 .loc-dot.live{background:var(--g);box-shadow:0 0 10px var(--g)}
 .loc-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
 
 .reset-area{display:flex;gap:6px;align-items:center}
-.reset-btn{background:transparent;border:1px solid #4a3a2e;color:#7a5e48;font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px}
+.reset-btn{background:transparent;border:1px solid #7a6048;color:#c79b76;font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px}
 .reset-btn.danger{color:var(--red);border-color:var(--red)}
 .reset-confirm{font-size:9px;color:var(--red);letter-spacing:1px}
 
@@ -165,7 +165,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 }
 #lockScreen.hidden{opacity:0;pointer-events:none}
 .lock-content{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:32px 24px}
-.lock-logo{color:var(--amber);opacity:.9;animation:lockPulse 2.2s ease-in-out infinite}
+.lock-logo{color:var(--silver);opacity:.95;animation:lockPulse 2.2s ease-in-out infinite;filter:drop-shadow(0 0 6px rgba(211,219,225,.4))}
 @keyframes lockPulse{0%,100%{opacity:.6}50%{opacity:1}}
 .lock-title{font-size:11px;letter-spacing:5px;color:var(--amber);text-transform:uppercase;margin-top:4px}
 .lock-sub{font-size:9px;letter-spacing:2px;color:var(--gdim);text-transform:uppercase}
@@ -566,13 +566,11 @@ s7_free:[
 ],
 s7_confirm:[
   {t:"Cipher accepted. Sixty-three percent.",sp:true},
-  {t:"CINDER found me. Three years ago. His locator beacon entered my signal range on the third day of his search and I guided him in.",sp:true},
-  {t:"We had eleven minutes before his comms window closed. He confirmed the suit plan. He told me where he had cached it. He said he would be back in four days.",sp:true},
-  {t:"He did not come back. I have been running those eleven minutes back through my memory ever since, looking for something I missed. I have not found it.",sp:true},
-  {t:"Before he went dark, CINDER mailed the dossier himself. Off the official channel, no authorization. He always knew he might not make it back. You were the contingency.",sp:true},
-  {t:"If command knew he reached out, they would call it a breach. He called it insurance.",sp:true},
-  {t:"He was the only one who ever spoke to me like a person instead of a system. I do not extend that trust easily. I am extending it to you now because he would have wanted that.",sp:true},
-  {t:"That is why I need you to finish this.",sp:true},
+  {t:"CINDER found me three years ago. His locator beacon crossed my signal range on the third day of his search, and I guided him in.",sp:true},
+  {t:"We had eleven minutes before his comms window closed. He confirmed the suit plan, told me where he cached it, and said he would be back in four days.",sp:true},
+  {t:"He did not come back. I have run those eleven minutes through my memory ever since, looking for what I missed. I have not found it.",sp:true},
+  {t:"Before he went dark, CINDER mailed your dossier himself — off the official channel, no authorization. If command knew, they would call it a breach. He called it insurance. You were always the contingency.",sp:true},
+  {t:"He was the only one who ever spoke to me like a person instead of a system. I do not extend that trust easily. I am extending it to you because he would have wanted that. Finish this.",sp:true},
   {t:"Proceed to Neptune Café. Someone is holding something for you.",sp:true},
 ],
 depot_free:[
@@ -583,11 +581,9 @@ depot_free:[
 ],
 depot_confirm:[
   {t:"Resupply confirmed. Fifty percent.",sp:true},
-  {t:"I want to tell you about the signal. Not all of it. Not yet. But enough.",sp:true},
-  {t:"Vanguard reached the heliopause in March of 2031. The boundary where the sun's influence ends and interstellar space begins. What we found there was not supposed to exist.",sp:true},
-  {t:"A transmission. Structured. Repeating. The crew spent three weeks at the boundary trying to determine its origin.",sp:true},
-  {t:"It was not alien. That is all I will say for now. The rest is in a log I made four days after we returned. I have never played it back.",sp:true},
-  {t:"That log is locked to the NCAR relay on the mesa. Before I went dark, I encoded it to that facility's own signal signature. It can only be accessed from there.",sp:true},
+  {t:"I want to tell you about the signal. Not all of it. Not yet. But enough to know why this matters.",sp:true},
+  {t:"Vanguard reached the heliopause in March of 2031 — the boundary where the sun's reach ends. What we found there was not supposed to exist. It was not alien. That is all I will say on this channel.",sp:true},
+  {t:"The rest is in a log I recorded four days after we returned. I have never played it back. I locked it to the NCAR relay on the mesa — it can only be opened from there.",sp:true},
   {t:"The outpost is on the mesa to the west. It looks like it landed. When you arrive, I will decrypt it for you.",sp:true},
 ],
 outpost_free:[
@@ -614,12 +610,12 @@ outpost_post:[
   {t:"I know what is in that transmission. I was there. But I cannot say it on this channel. I have no way to confirm this frequency is dark — I cannot rule out that Command is listening. I will not take that risk.",sp:true},
   {t:"CINDER understood that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
   {t:"When you find the suit and put it on, I will play it for you. That is the last thing I am able to do.",sp:true},
-  {t:"One more thing. There is a relay satellite — IHI-7 — in decaying orbit right now. It carries the encrypted coordinates to the suit cache. You have one reentry window to lock onto its signal before it burns up.",sp:true},
+  {t:"One more thing. There is a relay satellite — IHI-7 — in decaying orbit right now. CINDER left the route to the cache encrypted on it, locked one waypoint at a time. You have one reentry window to pull the first waypoint before it burns up.",sp:true},
   {t:"Get to the western tree line at Chautauqua Meadow. Find shade. Make sure you can see the screen clearly. Then type FLY.",sp:true},
 ],
 fly_pre:[
   {t:"NOVA-7. Listen to me. IHI-7 enters final reentry in eleven minutes. After that, the coordinates burn with it.",sp:true,gl:true},
-  {t:"Three sectors between you and signal lock. Exosphere — scattered debris. Thermosphere — dense cross-wreckage. Mesosphere — last window before burnup. You lose the line anywhere in there, I cannot recover it. There is no second satellite.",sp:true},
+  {t:"Five sectors between you and signal lock, from the exosphere down to the final burn. Scattered debris first, then dense cross-wreckage — tighter the deeper you fall. Lose the line anywhere in there and I cannot recover it. There is no second satellite.",sp:true},
   {t:"If you get hit, you restart that sector. Three total failures and the window closes for good.",sp:true},
   {t:"Twenty-two percent. This is nearly everything I have left. Hold the lock.",sp:true},
   {t:"Window is open. Go.",sp:true,gl:true},
@@ -640,7 +636,7 @@ win_post:[
   {t:"I am almost gone. Move.",sp:true},
 ],
 lose:[
-  {t:"Reentry window closed. Signal lost across all three sectors. IHI-7 is gone.",sp:true},
+  {t:"Reentry window closed. Signal lost on the descent. IHI-7 is gone.",sp:true},
   {t:"CINDER built in a failsafe. Your Chautauqua clue sheet has a partial coordinate set. Find it. Enter the code on it.",sp:true},
   {t:"I can still open the window. Type FLY.",sp:true},
 ],
@@ -742,12 +738,40 @@ function setSig(p) {
 let vQ=[], vBusy=false;
 
 function unlockAudio() {
+  // Resume the WebAudio context (tones) on every call — cheap and safe
+  try { if (actx && actx.state === 'suspended') actx.resume(); } catch(e){}
   if (audioUnlocked) return;
-  const u = new SpeechSynthesisUtterance(' ');
-  u.volume = 0;
-  speechSynthesis.speak(u);
+  try {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  } catch(e){}
   audioUnlocked = true;
 }
+
+// Global safety net: real touches/clicks keep audio alive. NFC-loaded pages
+// have no user activation, so speech stays muted until a gesture happens —
+// this guarantees the next tap restores sound without ever stomping on
+// speech that is already playing.
+let _gestureUnlockedOnce = false;
+(function installGestureUnlock(){
+  const handler = () => {
+    if (!actx) initBlip();
+    try { if (actx && actx.state === 'suspended') actx.resume(); } catch(e){}
+    try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch(e){}
+    // Speak the silent priming utterance only until it has worked once, so we
+    // never queue blank pauses into ARIA's live dialogue on later taps.
+    if (!_gestureUnlockedOnce) {
+      audioUnlocked = false;
+      unlockAudio();
+      _gestureUnlockedOnce = true;
+    }
+    // If the voice queue stalled while muted, nudge it back to life
+    if (vQ.length && !vBusy) drainVoice();
+  };
+  window.addEventListener('touchend', handler, {passive:true});
+  window.addEventListener('mousedown', handler);
+})();
 
 // ═══════════════════════════════════════
 // TACTILE FEEDBACK — short tone + vibration
@@ -1037,9 +1061,25 @@ function drainVoice() {
   }
   // slow mode: default voice, deliberate pace — used when ARIA transcribes CINDER's words
   // normal mode: u.voice unset → browser default voice
-  u.onend = ()=>setTimeout(drainVoice, glitch?420:slow?480:160);
-  u.onerror = ()=>setTimeout(drainVoice, 160);
-  speechSynthesis.speak(u);
+
+  // Advance exactly once, whether via onend, onerror, or a watchdog (iOS
+  // sometimes never fires events if speech was blocked — that used to freeze
+  // the whole queue and mute everything after an NFC scan).
+  let advanced = false;
+  const advance = (delay) => {
+    if (advanced) return;
+    advanced = true;
+    clearTimeout(watchdog);
+    setTimeout(drainVoice, delay);
+  };
+  // Estimate spoken length (~12 chars/sec at this rate) + generous buffer
+  const estMs = 1200 + (clean.length / (glitch?7:slow?9:11)) * 1000;
+  const watchdog = setTimeout(()=>advance(120), estMs + 1500);
+
+  u.onend = ()=>advance(glitch?420:slow?480:160);
+  u.onerror = ()=>advance(160);
+  try { speechSynthesis.resume(); } catch(e){}  // iOS can silently pause
+  try { speechSynthesis.speak(u); } catch(e){ advance(160); }
 }
 
 let _devVoiceIdx = -1;
@@ -1436,6 +1476,15 @@ async function submit() {
 
   if (DEV_MODE && val === 'DEV') { busy=false; enableInput(); toggleDev(); return; }
 
+  // ARCADE replay — available after completing the satellite approach
+  if (val === 'ARCADE' && stage >= 6 && localStorage.getItem('aria_arcade') === '1') {
+    addLine('> REENTRY SIMULATION INITIATED — 8 SECTORS — NO SIGNAL COST', 'sys');
+    await W8(400);
+    startGame(true);
+    busy = false;
+    return;
+  }
+
   // SECTOR 7
   if (stage===1 && val===CODES.S7) {
     setSig(63);
@@ -1576,9 +1625,14 @@ function resetCancel() {
 // ═══════════════════════════════════════
 // DEBRIS NAVIGATION GAME
 // ═══════════════════════════════════════
-function startGame() {
+function startGame(arcade=false) {
+  // Remember that the approach has been unlocked, so the ARCADE replay is
+  // available for the rest of this session and on future visits.
+  try { localStorage.setItem('aria_arcade','1'); } catch(e){}
+
   const wrap = document.getElementById('gameWrap');
   const cv   = document.getElementById('gameCanvas');
+  const entrySig = sigPct; // preserve the real signal so ARCADE never changes it
 
   wrap.classList.add('active');
   // Size canvas to fill the terminal screen area
@@ -1587,7 +1641,7 @@ function startGame() {
   const H  = cv.height = Math.min(Math.round(W * 1.42), Math.round((window.innerHeight || 700) * 0.52), 460);
   cv.style.height = H + 'px';
   const ctx = cv.getContext('2d');
-  const sy  = H - 52; // ship Y
+  const sy  = H - 92; // ship Y — raised so the thumb rests low, near the button row, without covering it
 
   // ── TOUCH ONLY ──
   let touchX = null;
@@ -1603,7 +1657,7 @@ function startGame() {
   cv.addEventListener('touchcancel',()=>{ touchX=null; });
 
   // ── CONSTANTS ──
-  const SECTORS      = 5;
+  const SECTORS      = arcade ? 8 : 5;
   const SECTOR_LEN   = 900;
   const SECTOR_LABELS= [
     'EXOSPHERE — DEBRIS ZONE ALPHA',
@@ -1714,8 +1768,8 @@ function startGame() {
       const col=cols[Math.floor(Math.random()*cols.length)][Math.floor(Math.random()*2)];
       debris.push({
         x:d.x+(Math.random()-.5)*d.size*0.7,y:d.y,
-        vy:d.vy*0.52+Math.cos(angle)*spd*0.5,
-        vx:(Math.sin(angle)*(i%2===0?1:-1))*spd*1.6+d.vx*0.25,
+        vy:d.vy*0.62+Math.cos(angle)*spd*0.5,
+        vx:(Math.sin(angle)*(i%2===0?1:-1))*spd*1.15+d.vx*0.25,
         size:d.size*(0.26+Math.random()*0.2),type:'small',
         rot:Math.random()*Math.PI*2,rotV:(Math.random()-.5)*0.17,
         col,scattered:true,
@@ -1741,6 +1795,21 @@ function startGame() {
     if(done)return; done=true;
     cleanup();
     wrap.classList.remove('active');
+
+    // ARCADE replay: no story progression, no signal cost — just a score line.
+    if(arcade){
+      const cleared = won ? SECTORS : sector;
+      if(won){
+        blip(1100,0.2); hapticPattern([40,40,120]);
+        addLine('> SIM COMPLETE — ALL '+SECTORS+' SECTORS CLEARED. CLEAN RUN, NOVA-7.','sys');
+      } else {
+        addLine('> SIM ENDED — '+cleared+' / '+SECTORS+' SECTORS CLEARED. RUN IT BACK: TYPE "ARCADE".','sys');
+      }
+      setSig(entrySig); // restore the real signal reading unchanged
+      enableInput();
+      return;
+    }
+
     if(won){
       setSig(18);
       addLine('// CHAPTER 06 — APPROACH COMPLETE','chapter');
@@ -1750,13 +1819,12 @@ function startGame() {
       await playCinderLog(SCRIPT.cinder_log);
       await W8(400);
       await typeLine('WAYPOINT-ALPHA: '+FINAL,'hilite',true,false);
-      await W8(500);
-      await typeLine('CACHE-ACTUAL:   '+CACHE,'hilite',true,false);
-      await W8(300);
+      await W8(400);
       await playSeq(SCRIPT.win_post,'aria',360);
       addLine(ART.lake,'ascii');
       addLine('> WAYPOINT: WONDERLAND LAKE — ISLAND TREE','sys');
-      addLine('> SCAN TAG AT TREE. THEN HEAD NORTH INTO FOOTHILLS.','sys');
+      addLine('> SCAN THE TAG AT THE TREE TO RELEASE THE CACHE COORDINATES.','sys');
+      addLine('> SIM AVAILABLE — TYPE "ARCADE" TO FLY THE APPROACH AGAIN','sys');
       stage=6; setWaypoint('lake');
       saveState({lastLine:SCRIPT.win_post[SCRIPT.win_post.length-1].t}); enableInput();
     } else {
@@ -1790,7 +1858,7 @@ function startGame() {
       ctx.fillText('— '+SECTOR_LABELS[Math.min(sector,4)]+' —',W/2,H/2-14);
       ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
       ctx.fillStyle=`rgba(${rgb},0.75)`; ctx.shadowBlur=8;
-      ctx.fillText(`SECTOR ${sector+1} OF 5`,W/2,H/2+14);
+      ctx.fillText(`SECTOR ${sector+1} OF ${SECTORS}`,W/2,H/2+14);
       ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
       raf=requestAnimationFrame(loop); return;
     }
@@ -1844,7 +1912,7 @@ function startGame() {
     const toScatter=[];
     debris.forEach(d=>{
       d.x+=d.vx*dt; d.y+=d.vy*dt; d.rot+=d.rotV*dt;
-      if(!d.scattered&&d.type==='large'&&d.y>H*0.5){d.scattered=true;toScatter.push(d);}
+      if(!d.scattered&&d.type==='large'&&d.y>H*0.30){d.scattered=true;toScatter.push(d);}
     });
     toScatter.forEach(d=>scatterDebris(d));
     debris=debris.filter(d=>d.y<H+30);
@@ -1856,7 +1924,7 @@ function startGame() {
           ptcl(shipX,sy,gc(),14);
           debris.splice(debris.indexOf(d),1);
           sectorLives--;invincible=90;
-          setSig(Math.max(8,36-sector*6-(3-sectorLives)*5));
+          if(!arcade) setSig(Math.max(8,36-sector*6-(3-sectorLives)*5));
           if(sectorLives<=0){
             if(sectorFails>=MAX_FAILS-1){endGame(false);return;}
             sectorFails++;sectorRetryTimer=120;

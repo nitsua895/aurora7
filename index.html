@@ -263,7 +263,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
       <div class="game-wrap" id="gameWrap">
         <canvas id="gameCanvas"></canvas>
-        <div class="game-hint">← → MOVE · SWIPE · L-STICK CONTROLLER · NAVIGATE IHI-7 REENTRY · 3 SECTORS</div>
+        <div class="game-hint">← → MOVE · SWIPE · L-STICK · NAVIGATE IHI-7 REENTRY · 3 SECTORS · LARGE DEBRIS SCATTERS</div>
       </div>
 
       <div class="badge waypoint" id="waypointBadge" onclick="openCurrentWaypoint()"></div>
@@ -573,8 +573,11 @@ outpost_post:[
   {t:"Get to the western tree line at Chautauqua Meadow. Find shade. Make sure you can see the screen clearly. Then type FLY.",sp:true},
 ],
 fly_pre:[
-  {t:"IHI-7 is inbound. Three debris sectors between you and a clean signal lock. Navigate through. Do not lose the line.",sp:true},
-  {t:"Twenty-two percent. This is nearly everything I have left. Hold the lock, NOVA-7.",sp:true},
+  {t:"NOVA-7. Listen to me. IHI-7 enters final reentry in eleven minutes. After that, the coordinates burn with it.",sp:true,gl:true},
+  {t:"Three sectors between you and signal lock. Exosphere — scattered debris. Thermosphere — dense cross-wreckage. Mesosphere — last window before burnup. You lose the line anywhere in there, I cannot recover it. There is no second satellite.",sp:true},
+  {t:"If you get hit, you restart that sector. Three total failures and the window closes for good.",sp:true},
+  {t:"Twenty-two percent. This is nearly everything I have left. Hold the lock.",sp:true},
+  {t:"Window is open. Go.",sp:true,gl:true},
 ],
 win_pre:[
   {t:"Signal locked. Coordinates extracted before burnup. IHI-7 is gone.",sp:true},
@@ -589,9 +592,9 @@ win_post:[
   {t:"Go, NOVA-7. The quiet lake to the north. I am almost gone. Recover it.",sp:true},
 ],
 lose:[
-  {t:"Signal lost. IHI-7 burned before lock. Coordinates unconfirmed.",sp:true},
-  {t:"Backup protocol: your Chautauqua clue sheet has a partial coordinate set. Find it. Enter the code on it. Then type FLY again.",sp:true},
-  {t:"I still have the window. Try again.",sp:true},
+  {t:"Reentry window closed. Signal lost across all three sectors. IHI-7 is gone.",sp:true},
+  {t:"CINDER built in a failsafe. Your Chautauqua clue sheet has a partial coordinate set. Find it. Enter the code on it.",sp:true},
+  {t:"I can still open the window. Type FLY.",sp:true},
 ],
 recovery_pre:[
   {t:"Signal at eight percent.",sp:true},
@@ -1286,7 +1289,7 @@ function startGame() {
   }
 
   const SECTORS=3;
-  const SECTOR_LEN=700;
+  const SECTOR_LEN=900;
   const SECTOR_LABELS=['EXOSPHERE — DEBRIS ZONE ALPHA','THERMOSPHERE — WRECKAGE CORRIDOR','MESOSPHERE — SIGNAL LOCK WINDOW'];
   const SECTOR_BG=['#010402','#080400','#030108'];
   const SECTOR_GLOW=['#74ffaf','#ffcf6b','#c084fc'];
@@ -1302,10 +1305,13 @@ function startGame() {
     [['#c084fc','#a855f7'],['#e040fb','#9b59b6']],
   ];
 
-  let sector=0, sectorProg=0, sectorTransition=0;
-  let lives=3, tick=0, done=false;
+  // per-sector checkpoint system
+  let sector=0, sectorProg=0, sectorLives=3, sectorFails=0;
+  const MAX_FAILS=3;
+  let sectorTransition=0, sectorRetryTimer=0;
+  let tick=0, done=false;
   let shipX=W/2, shipVX=0, invincible=0;
-  let debris=[], pulseWaves=[], particles=[], warnings=[];
+  let debris=[], particles=[];
   const STARS=Array.from({length:70},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.4+Math.random()*0.8,s:Math.random()}));
   let raf;
 
@@ -1313,8 +1319,7 @@ function startGame() {
   function gcRgb(){return SECTOR_GLOW_RGB[Math.min(sector,2)];}
 
   function drawNebula(){
-    const clouds=SECTOR_NEBULA[Math.min(sector,2)];
-    clouds.forEach(cl=>{
+    SECTOR_NEBULA[Math.min(sector,2)].forEach(cl=>{
       const rg=ctx.createRadialGradient(cl.x*W,cl.y*H,0,cl.x*W,cl.y*H,cl.r*Math.max(W,H));
       rg.addColorStop(0,cl.c); rg.addColorStop(1,'rgba(0,0,0,0)');
       ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
@@ -1324,19 +1329,14 @@ function startGame() {
   function drawSatellite(x,y,hit){
     const col=hit?'#ffffff':gc();
     ctx.save(); ctx.translate(x,y);
-    ctx.shadowColor=col; ctx.shadowBlur=16;
-    ctx.fillStyle=col;
-    // body
+    ctx.shadowColor=col; ctx.shadowBlur=16; ctx.fillStyle=col;
     ctx.fillRect(-7,-5,14,11);
-    // solar panels
     ctx.fillStyle=hit?'rgba(255,255,255,0.5)':col;
     ctx.fillRect(-21,-3,12,6); ctx.fillRect(-19,-5,8,10);
     ctx.fillRect(9,-3,12,6);   ctx.fillRect(11,-5,8,10);
-    // dish arc
     ctx.strokeStyle=col; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.arc(0,-8,5,Math.PI,0); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0,-8); ctx.lineTo(0,-3); ctx.stroke();
-    // thruster flame
     if(tick%4<2){
       ctx.fillStyle='rgba(255,148,40,0.9)'; ctx.shadowColor='#ff8c00'; ctx.shadowBlur=10;
       ctx.fillRect(-3,6,6,5);
@@ -1346,23 +1346,42 @@ function startGame() {
   }
 
   function spawnDebris(){
-    const speed=1.8+sector*1.3+Math.random()*1.5;
-    const size=7+Math.random()*18;
-    const cols=SECTOR_DEBRIS_COL[Math.min(sector,2)];
+    const sec=Math.min(sector,2);
+    // sector 1 has wide cross-traffic vx; sector 2 even wider + more large
+    const speed=1.8+sec*1.5+Math.random()*(1.4+sec*0.4);
+    const size=8+Math.random()*(16+sec*4);
+    const largePct=0.18+sec*0.1;
+    const vxRange=sec===0?1.0:sec===1?2.4:2.0;
+    const cols=SECTOR_DEBRIS_COL[sec];
     const col=cols[Math.floor(Math.random()*cols.length)][Math.floor(Math.random()*2)];
     debris.push({
-      x:20+Math.random()*(W-40),y:-size,
-      vy:speed,vx:(Math.random()-.5)*1.4,
-      size,type:Math.random()<0.3?'large':'small',
-      rot:Math.random()*Math.PI*2,rotV:(Math.random()-.5)*0.09,
-      col,warned:false,
+      x:20+Math.random()*(W-40), y:-size,
+      vy:speed, vx:(Math.random()-.5)*vxRange,
+      size, type:Math.random()<largePct?'large':'small',
+      rot:Math.random()*Math.PI*2, rotV:(Math.random()-.5)*0.09,
+      col, scattered:false,
     });
   }
 
-  function spawnPulseWave(){
-    const gapW=62+Math.random()*28;
-    const gapX=28+Math.random()*(W-56-gapW);
-    pulseWaves.push({y:-8,vy:2.6+Math.random()*0.8,gapX,gapW,warned:false});
+  function scatterDebris(d){
+    const sec=Math.min(sector,2);
+    const frags=2+Math.floor(Math.random()*2);
+    const cols=SECTOR_DEBRIS_COL[sec];
+    for(let i=0;i<frags;i++){
+      const angle=(Math.PI/(frags+1))*(i+1);
+      const spd=(0.9+Math.random()*1.1)*(1+sec*0.35);
+      const col=cols[Math.floor(Math.random()*cols.length)][Math.floor(Math.random()*2)];
+      debris.push({
+        x:d.x+(Math.random()-.5)*d.size*0.7,
+        y:d.y,
+        vy:d.vy*0.52+Math.cos(angle)*spd*0.5,
+        vx:(Math.sin(angle)*(i%2===0?1:-1))*spd*1.6+d.vx*0.25,
+        size:d.size*(0.26+Math.random()*0.2),
+        type:'small',
+        rot:Math.random()*Math.PI*2, rotV:(Math.random()-.5)*0.17,
+        col, scattered:true,
+      });
+    }
   }
 
   function ptcl(x,y,col,n=10){
@@ -1374,6 +1393,10 @@ function startGame() {
     window.removeEventListener('keydown',onDown);
     window.removeEventListener('keyup',onUp);
     cancelAnimationFrame(raf);
+  }
+
+  function resetSectorState(){
+    sectorProg=0; sectorLives=3; invincible=0; debris=[]; particles=[];
   }
 
   async function endGame(won){
@@ -1395,15 +1418,12 @@ function startGame() {
       addLine(ART.lake,'ascii');
       addLine('> WAYPOINT: WONDERLAND LAKE — NORTH SHORE','sys');
       addLine('> NO CIPHER HERE. PUT THE SUIT ON, THEN JUST TELL ME.','sys');
-      stage=6;
-      setWaypoint('lake');
-      saveState({lastLine:SCRIPT.win_post[0].t});
-      enableInput();
+      stage=6; setWaypoint('lake');
+      saveState({lastLine:SCRIPT.win_post[0].t}); enableInput();
     } else {
       await playSeq(SCRIPT.lose,'aria',340);
       stage=4;
-      saveState({lastLine:SCRIPT.lose[SCRIPT.lose.length-1].t});
-      enableInput();
+      saveState({lastLine:SCRIPT.lose[SCRIPT.lose.length-1].t}); enableInput();
     }
   }
 
@@ -1412,10 +1432,10 @@ function startGame() {
     tick++;
     readPad();
 
-    // sector transition screen
+    // sector transition animation
     if(sectorTransition>0){
       sectorTransition--;
-      const col=gc(); const rgb=gcRgb();
+      const col=gc(), rgb=gcRgb();
       ctx.fillStyle=SECTOR_BG[Math.min(sector,2)]; ctx.fillRect(0,0,W,H);
       drawNebula();
       const flashA=sectorTransition>55?((80-sectorTransition)/25)*0.4:(sectorTransition/55)*0.4;
@@ -1423,14 +1443,35 @@ function startGame() {
       const labelA=sectorTransition>35?(1-(80-sectorTransition)/35):(sectorTransition/35);
       ctx.globalAlpha=Math.max(0,Math.min(1,labelA));
       const fs=Math.max(12,Math.round(H*0.068));
-      ctx.font=`bold ${fs}px Courier New`;
-      ctx.textAlign='center';
+      ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
       ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=20;
       ctx.fillText('— '+SECTOR_LABELS[Math.min(sector,2)]+' —',W/2,H/2-10);
       ctx.font=`${Math.max(9,Math.round(H*0.046))}px Courier New`;
       ctx.fillStyle=`rgba(${rgb},0.75)`; ctx.shadowBlur=8;
       ctx.fillText(`SECTOR ${sector+1} OF ${SECTORS}`,W/2,H/2+14);
       ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+      raf=requestAnimationFrame(loop); return;
+    }
+
+    // sector retry screen
+    if(sectorRetryTimer>0){
+      sectorRetryTimer--;
+      const col=gc(), rgb=gcRgb();
+      ctx.fillStyle=SECTOR_BG[Math.min(sector,2)]; ctx.fillRect(0,0,W,H);
+      drawNebula();
+      ctx.fillStyle=`rgba(255,50,50,${0.07+Math.sin(tick*0.14)*0.03})`; ctx.fillRect(0,0,W,H);
+      const fadeA=sectorRetryTimer>100?((120-sectorRetryTimer)/20):Math.min(1,sectorRetryTimer/30);
+      ctx.globalAlpha=Math.max(0,fadeA);
+      const fs=Math.max(12,Math.round(H*0.065));
+      ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
+      ctx.fillStyle='#ff4444'; ctx.shadowColor='#ff4444'; ctx.shadowBlur=18;
+      ctx.fillText('SIGNAL LOST — SECTOR '+(sector+1),W/2,H/2-10);
+      ctx.font=`${Math.max(9,Math.round(H*0.044))}px Courier New`;
+      ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=8;
+      const rem=MAX_FAILS-sectorFails;
+      ctx.fillText(`RETRYING... ${rem} ATTEMPT${rem===1?'':'S'} REMAINING`,W/2,H/2+14);
+      ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+      if(sectorRetryTimer===0) resetSectorState();
       raf=requestAnimationFrame(loop); return;
     }
 
@@ -1443,99 +1484,57 @@ function startGame() {
 
     sectorProg++;
     if(sectorProg>=SECTOR_LEN){
-      sector++; sectorProg=0; debris=[]; pulseWaves=[];
+      sector++; sectorProg=0; sectorLives=3; debris=[]; particles=[];
       if(sector>=SECTORS){endGame(true);return;}
       sectorTransition=80; raf=requestAnimationFrame(loop); return;
     }
 
-    const spawnRate=Math.max(10,55-sector*12-Math.floor(sectorProg/55));
+    const spawnRate=Math.max(10,55-sector*14-Math.floor(sectorProg/60));
     if(tick%spawnRate===0)spawnDebris();
 
-    // sector 2: pulse wave obstacles
-    if(sector===2&&sectorProg>60){
-      const pwInterval=Math.max(52,120-Math.floor(sectorProg/10));
-      if(tick%pwInterval===0)spawnPulseWave();
-    }
-
     const sy=H-34;
+
+    // update debris; trigger scatter when large pieces pass midfield
+    const toScatter=[];
     debris.forEach(d=>{
       d.x+=d.vx; d.y+=d.vy; d.rot+=d.rotV;
-      if(!d.warned&&d.y>H*0.25&&Math.abs(d.x-shipX)<80){
-        d.warned=true; warnings.push({x:d.x,life:22,full:false});
+      if(!d.scattered&&d.type==='large'&&d.y>H*0.5){
+        d.scattered=true; toScatter.push(d);
       }
     });
+    toScatter.forEach(d=>scatterDebris(d));
     debris=debris.filter(d=>d.y<H+30);
-
-    pulseWaves.forEach(pw=>{
-      pw.y+=pw.vy;
-      if(!pw.warned&&pw.y>H*0.18&&pw.y<H*0.5){
-        pw.warned=true; warnings.push({x:W/2,life:20,full:true});
-      }
-    });
-    pulseWaves=pulseWaves.filter(pw=>pw.y<H+16);
 
     if(invincible===0){
       for(const d of debris){
-        if(Math.abs(d.x-shipX)<d.size*0.6&&Math.abs(d.y-sy)<d.size*0.6){
+        if(Math.abs(d.x-shipX)<d.size*0.56&&Math.abs(d.y-sy)<d.size*0.56){
           ptcl(shipX,sy,gc(),14);
           debris.splice(debris.indexOf(d),1);
-          lives--; invincible=90;
-          setSig(Math.max(8,36-sector*6-(3-lives)*5));
-          if(lives<=0){endGame(false);return;}
-          break;
-        }
-      }
-      for(const pw of pulseWaves){
-        if(Math.abs(pw.y-sy)<11){
-          const inGap=shipX>=pw.gapX&&shipX<=pw.gapX+pw.gapW;
-          if(!inGap){
-            ptcl(shipX,sy,gc(),14);
-            pulseWaves.splice(pulseWaves.indexOf(pw),1);
-            lives--; invincible=90;
-            setSig(Math.max(8,36-sector*6-(3-lives)*5));
-            if(lives<=0){endGame(false);return;}
-            break;
+          sectorLives--; invincible=90;
+          setSig(Math.max(8,36-sector*6-(3-sectorLives)*5));
+          if(sectorLives<=0){
+            if(sectorFails>=MAX_FAILS-1){endGame(false);return;}
+            sectorFails++; sectorRetryTimer=120;
+            debris=[]; particles=[];
+            raf=requestAnimationFrame(loop); return;
           }
+          break;
         }
       }
     }
 
     particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
     particles=particles.filter(p=>p.life>0);
-    warnings.forEach(w=>w.life--);
-    warnings=warnings.filter(w=>w.life>0);
     STARS.forEach(s=>{s.y+=s.vy*(1+sector*0.35);if(s.y>H)s.y=0;});
 
     // ── DRAW ──
-    const col=gc(); const rgb=gcRgb();
+    const col=gc(), rgb=gcRgb();
     ctx.fillStyle=SECTOR_BG[Math.min(sector,2)]; ctx.fillRect(0,0,W,H);
     drawNebula();
 
-    // stars tinted per sector
     STARS.forEach(s=>{
       ctx.fillStyle=`rgba(${rgb},${0.07+s.s*0.18})`;
       ctx.fillRect(s.x,s.y,s.s>0.7?2:1,s.s>0.7?2:1);
-    });
-
-    // pulse waves
-    pulseWaves.forEach(pw=>{
-      ctx.shadowColor=col; ctx.shadowBlur=10;
-      ctx.fillStyle=col+'bb';
-      if(pw.gapX>0)ctx.fillRect(0,pw.y-5,pw.gapX,10);
-      if(pw.gapX+pw.gapW<W)ctx.fillRect(pw.gapX+pw.gapW,pw.y-5,W-(pw.gapX+pw.gapW),10);
-      ctx.strokeStyle=col+'44'; ctx.lineWidth=1; ctx.setLineDash([5,5]);
-      ctx.beginPath(); ctx.moveTo(pw.gapX,pw.y); ctx.lineTo(pw.gapX+pw.gapW,pw.y); ctx.stroke();
-      ctx.setLineDash([]); ctx.shadowBlur=0;
-    });
-
-    // warnings
-    warnings.forEach(w=>{
-      const a=w.life/22;
-      if(w.full){
-        ctx.fillStyle=`rgba(255,70,70,${a*0.13})`; ctx.fillRect(0,0,W,H);
-      } else {
-        ctx.fillStyle=`rgba(255,100,100,${a})`; ctx.fillRect(w.x-2,0,4,H*0.55);
-      }
     });
 
     // debris
@@ -1553,10 +1552,8 @@ function startGame() {
       ctx.restore();
     });
 
-    // satellite ship
     if(invincible===0||(Math.floor(tick/6)%2===0)) drawSatellite(shipX,sy,invincible>0);
 
-    // particles
     particles.forEach(p=>{
       const a=Math.floor((p.life/24)*255).toString(16).padStart(2,'0');
       ctx.fillStyle=p.col+a; ctx.shadowBlur=0;
@@ -1575,7 +1572,7 @@ function startGame() {
     const fs=Math.max(10,Math.round(H*0.056));
     ctx.font=`${fs}px Courier New`;
     ctx.textAlign='left'; ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=4;
-    const livePips='◈'.repeat(lives)+'◇'.repeat(Math.max(0,3-lives));
+    const livePips='◈'.repeat(sectorLives)+'◇'.repeat(Math.max(0,3-sectorLives));
     ctx.fillText(`${livePips}  ${Math.round(prog*100)}%`,8,Math.round(H*0.08));
     ctx.fillStyle=`rgba(${rgb},0.38)`;
     ctx.font=`${Math.max(9,Math.round(H*0.046))}px Courier New`;

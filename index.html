@@ -798,14 +798,17 @@ function playNfcScanTone() {
   if (!actx) initBlip();
   try {
     const now = actx.currentTime;
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(180, now);
-    o.frequency.exponentialRampToValueAtTime(1100, now + 0.88);
-    g.gain.setValueAtTime(0.055, now);
-    g.gain.exponentialRampToValueAtTime(0.001, now + 0.98);
-    o.connect(g); g.connect(actx.destination);
-    o.start(now); o.stop(now + 1.05);
+    // Eb4 Bb4 C5 D5 A5 — melancholy urgency, A5 lingers
+    [[0, 311.13],[0.075, 466.16],[0.150, 523.25],[0.225, 587.33],[0.315, 880.00]].forEach(([t,freq],i,a) => {
+      const last = i===a.length-1;
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, now+t);
+      g.gain.linearRampToValueAtTime(0.072, now+t+0.011);
+      g.gain.exponentialRampToValueAtTime(0.001, now+t+(last ? 0.58 : 0.20));
+      o.connect(g); g.connect(actx.destination);
+      o.start(now+t); o.stop(now+t+(last ? 0.62 : 0.24));
+    });
   } catch(e){}
 }
 function playNfcConfirmTone() {
@@ -826,149 +829,134 @@ function playUnlockSound() {
   if (!actx) initBlip();
   try {
     const now = actx.currentTime;
-    // Eb4 Bb4 C5 D5 A5 — clean sine, quick ascent, A5 lingers
-    [[0, 311.13],[0.075, 466.16],[0.150, 523.25],[0.225, 587.33],[0.315, 880.00]].forEach(([t,freq],i,a) => {
-      const last = i===a.length-1;
+    [[0,440],[0.13,554],[0.26,659],[0.42,880]].forEach(([t,freq]) => {
       const o = actx.createOscillator(), g = actx.createGain();
-      o.type = 'sine'; o.frequency.value = freq;
-      g.gain.setValueAtTime(0, now+t);
-      g.gain.linearRampToValueAtTime(0.072, now+t+0.011);
-      g.gain.exponentialRampToValueAtTime(0.001, now+t+(last ? 0.58 : 0.20));
+      o.type = 'square'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.045, now+t);
+      g.gain.exponentialRampToValueAtTime(0.001, now+t+0.18);
       o.connect(g); g.connect(actx.destination);
-      o.start(now+t); o.stop(now+t+(last ? 0.62 : 0.24));
+      o.start(now+t); o.stop(now+t+0.20);
     });
   } catch(e){}
 }
 function showNfcScanAnimation(cipher, onComplete) {
-  const overlay   = document.getElementById('nfcScanOverlay');
-  const canvas    = document.getElementById('nfcScanCanvas');
-  const fill      = document.getElementById('nfcProgressFill');
-  const label     = document.getElementById('nfcScanLabel');
-  const sub       = document.getElementById('nfcScanSub');
+  const overlay = document.getElementById('nfcScanOverlay');
+  const canvas  = document.getElementById('nfcScanCanvas');
+  const fill    = document.getElementById('nfcProgressFill');
+  const label   = document.getElementById('nfcScanLabel');
+  const sub     = document.getElementById('nfcScanSub');
   const tapPrompt = document.getElementById('nfcTapPrompt');
 
-  // Reset to pre-tap state
   overlay.classList.remove('confirmed', 'scanning');
   fill.style.transition = 'none';
   fill.style.width = '0%';
   label.textContent = 'NFC CIPHER DETECTED';
-  sub.textContent   = 'ACQUIRING...';
-  tapPrompt.style.display = 'block';
-  overlay.classList.add('active');
+  sub.textContent   = 'READING ENCRYPTED TAG...';
+  tapPrompt.style.display = 'none';
+  overlay.classList.add('active', 'scanning');
+
+  // Best-effort audio unlock — NFC page load may have a prior gesture
+  unlockAudio();
+  if (!actx) initBlip();
+  try { actx.resume(); } catch(e){}
+
+  hapticPattern([35, 55, 35, 55, 35]);
+  playNfcScanTone();
 
   const ctx2d = canvas.getContext('2d');
-  const CW = 180, CH = 180, cx = 90, cy = 90;
-  let angle = 0, animId, confirmed = false, scanning = false;
+  const CW = 180, CH = 180, cx = 90, cy = 90, maxR = 82;
+  let animId, confirmed = false;
 
-  // Draw idle rings (dim, static feel) while waiting for tap
-  function drawIdle() {
+  // Expanding magnetic wave rings: each ring starts small, expands outward, fades
+  const rings = [];
+  let lastEmit = 0;
+  const EMIT_INTERVAL = 520; // ms between new rings
+
+  function emitRing(now) {
+    rings.push({ born: now, r: 6 });
+  }
+
+  function drawFrame(ts) {
     ctx2d.clearRect(0, 0, CW, CH);
-    angle += 0.012;
-    const col = '#74ffaf'; const colDim = 'rgba(116,255,175,0.15)';
-    ctx2d.beginPath(); ctx2d.arc(cx,cy,74,0,Math.PI*2);
-    ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1;
-    ctx2d.setLineDash([7,5]); ctx2d.lineDashOffset=-angle*28; ctx2d.stroke();
-    ctx2d.setLineDash([]);
-    const p = 0.5+0.5*Math.sin(angle*1.4);
-    ctx2d.beginPath(); ctx2d.arc(cx,cy,54,0,Math.PI*2);
-    ctx2d.strokeStyle=col; ctx2d.lineWidth=1; ctx2d.globalAlpha=0.08+0.1*p; ctx2d.stroke();
-    ctx2d.globalAlpha=1;
-    ctx2d.beginPath(); ctx2d.arc(cx,cy,4,0,Math.PI*2);
-    ctx2d.fillStyle=col; ctx2d.globalAlpha=0.3+0.2*p; ctx2d.fill(); ctx2d.globalAlpha=1;
-    if (!scanning) animId = requestAnimationFrame(drawIdle);
-  }
-  animId = requestAnimationFrame(drawIdle);
+    const col    = confirmed ? '#ffcf6b' : '#74ffaf';
+    const colDim = confirmed ? 'rgba(255,207,107,0.18)' : 'rgba(116,255,175,0.18)';
 
-  function startScan() {
-    if (scanning) return;
-    scanning = true;
-    cancelAnimationFrame(animId);
-    overlay.classList.add('scanning');
-
-    // This tap is the user gesture — unlock audio here
-    unlockAudio();
-    if (!actx) initBlip();
-    try { actx.resume(); } catch(e){}
-
-    hapticPattern([35, 55, 35, 55, 35]);
-    playNfcScanTone();
-    label.textContent = 'NFC CIPHER DETECTED';
-    sub.textContent   = 'READING ENCRYPTED TAG...';
-
-    function drawFrame() {
-      ctx2d.clearRect(0, 0, CW, CH);
-      const col    = confirmed ? '#ffcf6b' : '#74ffaf';
-      const colDim = confirmed ? 'rgba(255,207,107,0.22)' : 'rgba(116,255,175,0.2)';
-      angle += 0.038;
-
-      ctx2d.beginPath(); ctx2d.arc(cx,cy,74,0,Math.PI*2);
-      ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1;
-      ctx2d.setLineDash([7,5]); ctx2d.lineDashOffset=-angle*28; ctx2d.stroke();
-      ctx2d.setLineDash([]);
-
-      ctx2d.beginPath(); ctx2d.arc(cx,cy,54,0,Math.PI*2);
-      ctx2d.strokeStyle=col; ctx2d.lineWidth=1;
-      ctx2d.globalAlpha=0.18+0.32*(0.5+0.5*Math.sin(angle*2.2)); ctx2d.stroke();
-      ctx2d.globalAlpha=1;
-
-      ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
-      ctx2d.arc(cx,cy,52,angle-0.65,angle); ctx2d.closePath();
-      ctx2d.fillStyle=colDim; ctx2d.fill();
-      ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
-      ctx2d.lineTo(cx+Math.cos(angle)*52, cy+Math.sin(angle)*52);
-      ctx2d.strokeStyle=col; ctx2d.lineWidth=1.5; ctx2d.globalAlpha=0.85; ctx2d.stroke();
-      ctx2d.globalAlpha=1;
-
-      const pct = Math.min(parseFloat(fill.style.width)||0, 100) / 100;
-      ctx2d.beginPath(); ctx2d.arc(cx,cy,30,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
-      ctx2d.strokeStyle=col; ctx2d.lineWidth=3;
-      ctx2d.shadowColor=col; ctx2d.shadowBlur=5; ctx2d.stroke(); ctx2d.shadowBlur=0;
-
-      ctx2d.beginPath(); ctx2d.arc(cx,cy,confirmed?7:4,0,Math.PI*2);
-      ctx2d.fillStyle=col; ctx2d.shadowColor=col; ctx2d.shadowBlur=confirmed?14:6;
-      ctx2d.fill(); ctx2d.shadowBlur=0;
-
-      [[cx-74,cy-74,1,1],[cx+74,cy-74,-1,1],[cx-74,cy+74,1,-1],[cx+74,cy+74,-1,-1]].forEach(([x,y,dx,dy])=>{
-        ctx2d.beginPath(); ctx2d.moveTo(x,y); ctx2d.lineTo(x+dx*10,y);
-        ctx2d.moveTo(x,y); ctx2d.lineTo(x,y+dy*10);
-        ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1; ctx2d.globalAlpha=0.6; ctx2d.stroke();
-        ctx2d.globalAlpha=1;
-      });
-
-      animId = requestAnimationFrame(drawFrame);
+    // Emit new rings on interval
+    if (ts - lastEmit > EMIT_INTERVAL) {
+      emitRing(ts);
+      lastEmit = ts;
     }
+
+    // Draw and age rings
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const ring = rings[i];
+      const age  = ts - ring.born;
+      const dur  = 1600;
+      const t    = Math.min(age / dur, 1);
+      ring.r = 6 + (maxR - 6) * t;
+      const alpha = confirmed
+        ? 0.75 * (1 - t)
+        : 0.55 * (1 - t);
+      if (alpha <= 0.01) { rings.splice(i, 1); continue; }
+      ctx2d.beginPath();
+      ctx2d.arc(cx, cy, ring.r, 0, Math.PI * 2);
+      ctx2d.strokeStyle = col;
+      ctx2d.lineWidth = confirmed ? 1.8 : 1.4;
+      ctx2d.globalAlpha = alpha;
+      ctx2d.shadowColor = col;
+      ctx2d.shadowBlur  = confirmed ? 10 : 6;
+      ctx2d.stroke();
+      ctx2d.shadowBlur = 0;
+      ctx2d.globalAlpha = 1;
+    }
+
+    // Center dot — pulses gently
+    const pulse = 0.5 + 0.5 * Math.sin(ts * 0.006);
+    ctx2d.beginPath();
+    ctx2d.arc(cx, cy, confirmed ? 7 : 4 + pulse, 0, Math.PI * 2);
+    ctx2d.fillStyle = col;
+    ctx2d.shadowColor = col;
+    ctx2d.shadowBlur  = confirmed ? 18 : 8 + 4 * pulse;
+    ctx2d.fill();
+    ctx2d.shadowBlur = 0;
+
+    // Progress arc (thin, around center)
+    const pct = Math.min(parseFloat(fill.style.width) || 0, 100) / 100;
+    if (pct > 0) {
+      ctx2d.beginPath();
+      ctx2d.arc(cx, cy, 18, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      ctx2d.strokeStyle = col;
+      ctx2d.lineWidth = 2;
+      ctx2d.globalAlpha = 0.7;
+      ctx2d.stroke();
+      ctx2d.globalAlpha = 1;
+    }
+
     animId = requestAnimationFrame(drawFrame);
-
-    // Progress fills over 2.2s
-    setTimeout(()=>{ fill.style.transition='width 2.2s linear'; fill.style.width='100%'; }, 30);
-
-    // Confirm at 2.4s
-    setTimeout(()=>{
-      confirmed = true;
-      overlay.classList.add('confirmed');
-      label.textContent = 'CIPHER VERIFIED';
-      sub.textContent   = cipher.toUpperCase();
-      hapticPattern([60, 35, 120]);
-      playNfcConfirmTone();
-      // ARIA voices the confirm
-      speakText('Cipher confirmed. Continuing mission.', false, false);
-      // Fade and complete after 900ms
-      setTimeout(()=>{
-        overlay.classList.remove('active');
-        setTimeout(()=>{
-          cancelAnimationFrame(animId);
-          overlay.classList.remove('confirmed','scanning');
-          onComplete();
-        }, 300);
-      }, 900);
-    }, 2400);
   }
+  animId = requestAnimationFrame(drawFrame);
 
-  // Tap or touch anywhere on overlay starts the scan
-  let _started = false;
-  function onActivate(){ if(_started) return; _started=true; startScan(); }
-  overlay.addEventListener('click',   onActivate);
-  overlay.addEventListener('touchend', onActivate, {passive:true});
+  // Progress fills over 2.2s
+  setTimeout(() => { fill.style.transition = 'width 2.2s linear'; fill.style.width = '100%'; }, 30);
+
+  // Confirm at 2.4s
+  setTimeout(() => {
+    confirmed = true;
+    overlay.classList.add('confirmed');
+    label.textContent = 'CIPHER VERIFIED';
+    sub.textContent   = cipher.toUpperCase();
+    hapticPattern([60, 35, 120]);
+    playNfcConfirmTone();
+    speakText('Cipher confirmed. Continuing mission.', false, false);
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      setTimeout(() => {
+        cancelAnimationFrame(animId);
+        overlay.classList.remove('confirmed', 'scanning');
+        onComplete();
+      }, 300);
+    }, 900);
+  }, 2400);
 }
 
 // ═══════════════════════════════════════

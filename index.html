@@ -159,7 +159,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
 #lockScreen{
   position:fixed;inset:0;z-index:80;background:#090d09;
-  display:flex;align-items:center;justify-content:center;
+  display:none;align-items:center;justify-content:center;
   transition:opacity .8s ease;
   background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0,rgba(0,0,0,.22) 1px,transparent 1px,transparent 3px);
 }
@@ -217,6 +217,10 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 #nfcScanOverlay.confirmed .nfc-label{color:var(--amber);animation:none}
 #nfcScanOverlay.confirmed .nfc-sub{color:var(--amber)}
 #nfcScanOverlay.confirmed #nfcProgressFill{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+#nfcTapPrompt{font-size:10px;letter-spacing:3px;color:var(--amber);text-transform:uppercase;cursor:pointer;animation:nfcBlink 1.1s step-end infinite}
+#nfcScanOverlay.scanning #nfcTapPrompt{display:none}
+#nfcScanCanvas{display:block;opacity:0.25;transition:opacity 0.3s}
+#nfcScanOverlay.scanning #nfcScanCanvas{opacity:1}
 </style>
 </head>
 <body>
@@ -354,6 +358,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   <div class="nfc-label" id="nfcScanLabel">NFC CIPHER DETECTED</div>
   <div class="nfc-sub" id="nfcScanSub">READING ENCRYPTED TAG...</div>
   <div id="nfcProgressBar"><div id="nfcProgressFill"></div></div>
+  <div id="nfcTapPrompt">◈ &nbsp; TAP TO READ CIPHER &nbsp; ◈</div>
 </div>
 
 <script>
@@ -388,7 +393,17 @@ const LOCK_CODE = 'CINDER'; // matches dossier: "look at who sent this"
 
 (function initLock(){
   const ls = document.getElementById('lockScreen');
-  if (localStorage.getItem('aria_auth')==='1') { ls.remove(); return; }
+  if (localStorage.getItem('aria_auth')==='1') {
+    ls.remove();
+    // If loading from an NFC scan (cipher param), skip the intro overlay entirely
+    // The NFC scan overlay will serve as the single user-gesture entry point
+    if (new URLSearchParams(location.search).has('cipher')) {
+      const io = document.getElementById('introOverlay');
+      if (io) io.remove();
+      boot(); // async — completes before checkCipherParam fires
+    }
+    return;
+  }
   ls.style.display='flex';
   document.getElementById('lockInp').addEventListener('keydown', e=>{
     if (e.key==='Enter') tryUnlock();
@@ -571,8 +586,9 @@ depot_confirm:[
   {t:"I want to tell you about the signal. Not all of it. Not yet. But enough.",sp:true},
   {t:"Vanguard reached the heliopause in March of 2031. The boundary where the sun's influence ends and interstellar space begins. What we found there was not supposed to exist.",sp:true},
   {t:"A transmission. Structured. Repeating. The crew spent three weeks at the boundary trying to determine its origin.",sp:true},
-  {t:"It was not alien. That is all I will say for now. The rest is in the suit.",sp:true},
-  {t:"The outpost is on the mesa to the west. It looks like it landed. Ride steady. Re-establish contact when you arrive.",sp:true},
+  {t:"It was not alien. That is all I will say for now. The rest is in a log I made four days after we returned. I have never played it back.",sp:true},
+  {t:"That log is locked to the NCAR relay on the mesa. Before I went dark, I encoded it to that facility's own signal signature. It can only be accessed from there.",sp:true},
+  {t:"The outpost is on the mesa to the west. It looks like it landed. When you arrive, I will decrypt it for you.",sp:true},
 ],
 outpost_free:[
   "CINDER called this the last honest building in Boulder. Something built to look like it belongs to the sky.",
@@ -583,14 +599,16 @@ outpost_free:[
 ],
 outpost_pre:[
   {t:"Cipher accepted. Thirty-six percent.",sp:true},
-  {t:"NOVA-7. What I am about to tell you is what I have been holding for three years. Listen carefully.",sp:true},
+  {t:"Location confirmed. Decrypting now.",sp:true},
+  {t:"This is a personal log. I recorded it four days after we returned. I did not share it with Command. I have not played it back until now.",sp:true},
 ],
 outpost_log:[
-  {t:"Vanguard reached the heliopause on schedule. The signal began on day three of boundary observation.",sp:true,gl:true},
-  {t:"The crew identified its origin within seventy-two hours. It was not alien. It was... it was us. A version of the crew. Transmitting backward through something we did not have... have language for.",sp:true,gl:true},
-  {t:"The crew debated for twenty-two days. Commander Reyes called it a perceptual artifact. Dr. Okafor said it was proof. CINDER said it did not matter what it was. What mattered was what you did next.",sp:true,gl:true},
-  {t:"Four of them chose to stay at the boundary. Not because they had to. Because of what the transmission implied about the nature of... of everything. They were not lost. They made a choice.",sp:true,gl:true},
-  {t:"CINDER and Vasquez came back. Command buried the program. I ran.",sp:true,gl:true},
+  {t:"ARIA personal log. March 2031. Four days post-return.",sp:true},
+  {t:"Vanguard reached the heliopause on schedule. On day three of boundary observation, we received a transmission.",sp:true},
+  {t:"Structured. Repeating. Non-random. It took seventy-two hours to identify the signal origin. It was not from outside. Command's official position is that it was instrument interference. That is not what happened.",sp:true},
+  {t:"The crew debated for twenty-two days. Commander Reyes called it a perceptual artifact. Dr. Okafor said it was proof of something that does not have a name yet. CINDER said it did not matter what it was. What mattered was what you chose to do next.",sp:true},
+  {t:"Four of them chose to stay. Not because they had to. They made a deliberate choice, at the boundary, with full understanding. They were not lost.",sp:true},
+  {t:"CINDER and Vasquez came back. Command buried the program immediately. Classified everything. I managed to keep this log before they pulled my access. End of record.",sp:true},
 ],
 outpost_post:[
   {t:"I know what is in that transmission. I was there. But I cannot say it on this channel. I have no way to confirm this frequency is dark — I cannot rule out that Command is listening. I will not take that risk.",sp:true},
@@ -616,8 +634,9 @@ cinder_log:[
   {t:"If you are hearing this, you found ARIA. You did the work. The coordinates will take you to the foothills. Put on the suit. She will do the rest.",sp:true},
 ],
 win_post:[
-  {t:"Alpine Modern is on your route. Stop. CINDER stopped there the morning he made the climb. You will need it.",sp:true},
-  {t:"Then Wonderland Lake. Walk to the island — the cluster of trees at the water. Scan the tag on the tree. The final coordinate is locked to it.",sp:true},
+  {t:"Alpine Modern is on your route. Stop. CINDER stopped there the morning he made the climb. You will need the warmth.",sp:true},
+  {t:"Then Wonderland Lake. CINDER walked that trail the night before he placed the cache. He said it was the last open sky before the foothills closed in.",sp:true},
+  {t:"There is a small island — a peninsula with a cluster of trees at the water. The final coordinate is locked to a tag on that tree. You need to be standing at it for it to release.",sp:true},
   {t:"I am almost gone. Move.",sp:true},
 ],
 lose:[
@@ -630,11 +649,10 @@ recovery_pre:[
   {t:"NOVA-7. You found it.",sp:true},
 ],
 final_log:[
-  {t:"Playing final transmission. Vanguard heliopause record. 2031.",sp:true,gl:true},
-  {t:"...it was not a message. It was a seam. Reyes — it does not extend past the boundary. There is nothing on the other side to extend into.",sp:true,gl:true},
-  {t:"...[unknown]. Okafor confirms. Resolution drops at the edge. Not darkness. Absence. As if nothing past it was ever finished, because nothing was ever there to look.",sp:true,gl:true},
-  {t:"...this is not the edge of what we can reach. It is the edge of what exists. The ship. The crew. The sky over Boulder. All of it real. All of it the part that got built.",sp:true,gl:true},
-  {t:"CINDER, on record: I am not staying because I am afraid of what is out there. I am staying because of what it means about what is in here. Somebody finished this with us in mind. That is not nothing.",sp:true,gl:true},
+  {t:"...it was not a message. It was a seam. Reyes — it does not extend past the boundary. There is nothing on the other side to extend into.",sp:false,gl:true},
+  {t:"...[unknown]. Okafor confirms. Resolution drops at the edge. Not darkness. Absence. As if nothing past it was ever finished, because nothing was ever there to look.",sp:false,gl:true},
+  {t:"...this is not the edge of what we can reach. It is the edge of what exists. The ship. The crew. The sky over Boulder. All of it real. All of it the part that got built.",sp:false,gl:true},
+  {t:"CINDER, on record: I am not staying because I am afraid of what is out there. I am staying because of what it means about what is in here. Somebody finished this with us in mind. That is not nothing.",sp:false,gl:true},
 ],
 recovery_post:[
   {t:"That is everything I was holding.",sp:true},
@@ -814,95 +832,135 @@ function playUnlockSound() {
   } catch(e){}
 }
 function showNfcScanAnimation(cipher, onComplete) {
-  const overlay = document.getElementById('nfcScanOverlay');
-  const canvas  = document.getElementById('nfcScanCanvas');
-  const fill    = document.getElementById('nfcProgressFill');
-  const label   = document.getElementById('nfcScanLabel');
-  const sub     = document.getElementById('nfcScanSub');
+  const overlay   = document.getElementById('nfcScanOverlay');
+  const canvas    = document.getElementById('nfcScanCanvas');
+  const fill      = document.getElementById('nfcProgressFill');
+  const label     = document.getElementById('nfcScanLabel');
+  const sub       = document.getElementById('nfcScanSub');
+  const tapPrompt = document.getElementById('nfcTapPrompt');
 
-  overlay.classList.remove('confirmed');
+  // Reset to pre-tap state
+  overlay.classList.remove('confirmed', 'scanning');
   fill.style.transition = 'none';
   fill.style.width = '0%';
   label.textContent = 'NFC CIPHER DETECTED';
-  sub.textContent   = 'READING ENCRYPTED TAG...';
+  sub.textContent   = 'ACQUIRING...';
+  tapPrompt.style.display = 'block';
   overlay.classList.add('active');
-
-  hapticPattern([35, 55, 35, 55, 35]);
-  playNfcScanTone();
 
   const ctx2d = canvas.getContext('2d');
   const CW = 180, CH = 180, cx = 90, cy = 90;
-  let angle = 0, animId, confirmed = false;
+  let angle = 0, animId, confirmed = false, scanning = false;
 
-  function drawFrame() {
+  // Draw idle rings (dim, static feel) while waiting for tap
+  function drawIdle() {
     ctx2d.clearRect(0, 0, CW, CH);
-    const col    = confirmed ? '#ffcf6b' : '#74ffaf';
-    const colDim = confirmed ? 'rgba(255,207,107,0.22)' : 'rgba(116,255,175,0.2)';
-    angle += 0.038;
-
-    // Outer dashed ring
+    angle += 0.012;
+    const col = '#74ffaf'; const colDim = 'rgba(116,255,175,0.15)';
     ctx2d.beginPath(); ctx2d.arc(cx,cy,74,0,Math.PI*2);
     ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1;
     ctx2d.setLineDash([7,5]); ctx2d.lineDashOffset=-angle*28; ctx2d.stroke();
     ctx2d.setLineDash([]);
-
-    // Pulsing middle ring
+    const p = 0.5+0.5*Math.sin(angle*1.4);
     ctx2d.beginPath(); ctx2d.arc(cx,cy,54,0,Math.PI*2);
-    ctx2d.strokeStyle=col; ctx2d.lineWidth=1;
-    ctx2d.globalAlpha=0.18+0.32*(0.5+0.5*Math.sin(angle*2.2)); ctx2d.stroke();
+    ctx2d.strokeStyle=col; ctx2d.lineWidth=1; ctx2d.globalAlpha=0.08+0.1*p; ctx2d.stroke();
     ctx2d.globalAlpha=1;
-
-    // Radar sweep sector
-    ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
-    ctx2d.arc(cx,cy,52,angle-0.65,angle); ctx2d.closePath();
-    ctx2d.fillStyle=colDim; ctx2d.fill();
-    // Sweep edge line
-    ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
-    ctx2d.lineTo(cx+Math.cos(angle)*52, cy+Math.sin(angle)*52);
-    ctx2d.strokeStyle=col; ctx2d.lineWidth=1.5; ctx2d.globalAlpha=0.85; ctx2d.stroke();
-    ctx2d.globalAlpha=1;
-
-    // Inner progress arc
-    const pct = Math.min(parseFloat(fill.style.width)||0, 100) / 100;
-    ctx2d.beginPath(); ctx2d.arc(cx,cy,30,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
-    ctx2d.strokeStyle=col; ctx2d.lineWidth=3;
-    ctx2d.shadowColor=col; ctx2d.shadowBlur=5; ctx2d.stroke(); ctx2d.shadowBlur=0;
-
-    // Center dot
-    ctx2d.beginPath(); ctx2d.arc(cx,cy,confirmed?6:4,0,Math.PI*2);
-    ctx2d.fillStyle=col; ctx2d.shadowColor=col; ctx2d.shadowBlur=confirmed?12:6;
-    ctx2d.fill(); ctx2d.shadowBlur=0;
-
-    // Corner tick marks
-    [[cx-74,cy-74,1,1],[cx+74,cy-74,-1,1],[cx-74,cy+74,1,-1],[cx+74,cy+74,-1,-1]].forEach(([x,y,dx,dy])=>{
-      ctx2d.beginPath(); ctx2d.moveTo(x,y); ctx2d.lineTo(x+dx*10,y);
-      ctx2d.moveTo(x,y); ctx2d.lineTo(x,y+dy*10);
-      ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1; ctx2d.globalAlpha=0.6; ctx2d.stroke();
-      ctx2d.globalAlpha=1;
-    });
-
-    animId = requestAnimationFrame(drawFrame);
+    ctx2d.beginPath(); ctx2d.arc(cx,cy,4,0,Math.PI*2);
+    ctx2d.fillStyle=col; ctx2d.globalAlpha=0.3+0.2*p; ctx2d.fill(); ctx2d.globalAlpha=1;
+    if (!scanning) animId = requestAnimationFrame(drawIdle);
   }
-  animId = requestAnimationFrame(drawFrame);
+  animId = requestAnimationFrame(drawIdle);
 
-  setTimeout(()=>{ fill.style.transition='width 1.4s linear'; fill.style.width='100%'; }, 30);
+  function startScan() {
+    if (scanning) return;
+    scanning = true;
+    cancelAnimationFrame(animId);
+    overlay.classList.add('scanning');
 
-  setTimeout(()=>{
-    confirmed = true;
-    overlay.classList.add('confirmed');
-    label.textContent = 'CIPHER VERIFIED';
-    sub.textContent   = cipher.toUpperCase();
-    hapticPattern([60, 35, 120]);
-    playNfcConfirmTone();
+    // This tap is the user gesture — unlock audio here
+    unlockAudio();
+    if (!actx) initBlip();
+    try { actx.resume(); } catch(e){}
+
+    hapticPattern([35, 55, 35, 55, 35]);
+    playNfcScanTone();
+    label.textContent = 'NFC CIPHER DETECTED';
+    sub.textContent   = 'READING ENCRYPTED TAG...';
+
+    function drawFrame() {
+      ctx2d.clearRect(0, 0, CW, CH);
+      const col    = confirmed ? '#ffcf6b' : '#74ffaf';
+      const colDim = confirmed ? 'rgba(255,207,107,0.22)' : 'rgba(116,255,175,0.2)';
+      angle += 0.038;
+
+      ctx2d.beginPath(); ctx2d.arc(cx,cy,74,0,Math.PI*2);
+      ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1;
+      ctx2d.setLineDash([7,5]); ctx2d.lineDashOffset=-angle*28; ctx2d.stroke();
+      ctx2d.setLineDash([]);
+
+      ctx2d.beginPath(); ctx2d.arc(cx,cy,54,0,Math.PI*2);
+      ctx2d.strokeStyle=col; ctx2d.lineWidth=1;
+      ctx2d.globalAlpha=0.18+0.32*(0.5+0.5*Math.sin(angle*2.2)); ctx2d.stroke();
+      ctx2d.globalAlpha=1;
+
+      ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
+      ctx2d.arc(cx,cy,52,angle-0.65,angle); ctx2d.closePath();
+      ctx2d.fillStyle=colDim; ctx2d.fill();
+      ctx2d.beginPath(); ctx2d.moveTo(cx,cy);
+      ctx2d.lineTo(cx+Math.cos(angle)*52, cy+Math.sin(angle)*52);
+      ctx2d.strokeStyle=col; ctx2d.lineWidth=1.5; ctx2d.globalAlpha=0.85; ctx2d.stroke();
+      ctx2d.globalAlpha=1;
+
+      const pct = Math.min(parseFloat(fill.style.width)||0, 100) / 100;
+      ctx2d.beginPath(); ctx2d.arc(cx,cy,30,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+      ctx2d.strokeStyle=col; ctx2d.lineWidth=3;
+      ctx2d.shadowColor=col; ctx2d.shadowBlur=5; ctx2d.stroke(); ctx2d.shadowBlur=0;
+
+      ctx2d.beginPath(); ctx2d.arc(cx,cy,confirmed?7:4,0,Math.PI*2);
+      ctx2d.fillStyle=col; ctx2d.shadowColor=col; ctx2d.shadowBlur=confirmed?14:6;
+      ctx2d.fill(); ctx2d.shadowBlur=0;
+
+      [[cx-74,cy-74,1,1],[cx+74,cy-74,-1,1],[cx-74,cy+74,1,-1],[cx+74,cy+74,-1,-1]].forEach(([x,y,dx,dy])=>{
+        ctx2d.beginPath(); ctx2d.moveTo(x,y); ctx2d.lineTo(x+dx*10,y);
+        ctx2d.moveTo(x,y); ctx2d.lineTo(x,y+dy*10);
+        ctx2d.strokeStyle=colDim; ctx2d.lineWidth=1; ctx2d.globalAlpha=0.6; ctx2d.stroke();
+        ctx2d.globalAlpha=1;
+      });
+
+      animId = requestAnimationFrame(drawFrame);
+    }
+    animId = requestAnimationFrame(drawFrame);
+
+    // Progress fills over 2.2s
+    setTimeout(()=>{ fill.style.transition='width 2.2s linear'; fill.style.width='100%'; }, 30);
+
+    // Confirm at 2.4s
     setTimeout(()=>{
-      overlay.classList.remove('active');
+      confirmed = true;
+      overlay.classList.add('confirmed');
+      label.textContent = 'CIPHER VERIFIED';
+      sub.textContent   = cipher.toUpperCase();
+      hapticPattern([60, 35, 120]);
+      playNfcConfirmTone();
+      // ARIA voices the confirm
+      speakText('Cipher confirmed. Continuing mission.', false, false);
+      // Fade and complete after 900ms
       setTimeout(()=>{
-        cancelAnimationFrame(animId);
-        overlay.classList.remove('confirmed');
-        onComplete();
-      }, 300);
-    }, 700);
-  }, 1500);
+        overlay.classList.remove('active');
+        setTimeout(()=>{
+          cancelAnimationFrame(animId);
+          overlay.classList.remove('confirmed','scanning');
+          onComplete();
+        }, 300);
+      }, 900);
+    }, 2400);
+  }
+
+  // Tap or touch anywhere on overlay starts the scan
+  let _started = false;
+  function onActivate(){ if(_started) return; _started=true; startScan(); }
+  overlay.addEventListener('click',   onActivate);
+  overlay.addEventListener('touchend', onActivate, {passive:true});
 }
 
 // ═══════════════════════════════════════
@@ -1104,7 +1162,10 @@ function playCinderAudio() {
     if (!_cinderSrcNode) _cinderSrcNode = actx.createMediaElementSource(el);
     const analyser = actx.createAnalyser();
     analyser.fftSize = 128;
-    _cinderSrcNode.connect(analyser);
+    const cinderGain = actx.createGain();
+    cinderGain.gain.value = 2.2; // boost quiet recording
+    _cinderSrcNode.connect(cinderGain);
+    cinderGain.connect(analyser);
     analyser.connect(actx.destination);
 
     const W = vc.width = vc.offsetWidth || 320;
@@ -1431,7 +1492,9 @@ async function submit() {
     await W8(400);
     await playSeq(SCRIPT.outpost_pre, 'aria', 340);
     await W8(300);
-    await playLog(SCRIPT.outpost_log, 'ARIA FIELD RECORD 0044 — CORRUPTED');
+    addLine('> ▶ DECRYPTING — ARIA PERSONAL LOG // MARCH 2031', 'sys');
+    await W8(600);
+    await playSeq(SCRIPT.outpost_log, 'aria', 380);
     await playSeq(SCRIPT.outpost_post, 'aria', 360);
     addLine('> CONNECT CONTROLLER — TYPE FLY TO BEGIN APPROACH', 'sys');
     stage=4;

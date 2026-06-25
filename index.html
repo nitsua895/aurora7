@@ -826,13 +826,16 @@ function playUnlockSound() {
   if (!actx) initBlip();
   try {
     const now = actx.currentTime;
-    [[0,440],[0.13,554],[0.26,659],[0.42,880]].forEach(([t,freq]) => {
+    // Eb4 Bb4 C5 D5 A5 — clean sine, quick ascent, A5 lingers
+    [[0, 311.13],[0.075, 466.16],[0.150, 523.25],[0.225, 587.33],[0.315, 880.00]].forEach(([t,freq],i,a) => {
+      const last = i===a.length-1;
       const o = actx.createOscillator(), g = actx.createGain();
-      o.type = 'square'; o.frequency.value = freq;
-      g.gain.setValueAtTime(0.045, now+t);
-      g.gain.exponentialRampToValueAtTime(0.001, now+t+0.18);
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, now+t);
+      g.gain.linearRampToValueAtTime(0.072, now+t+0.011);
+      g.gain.exponentialRampToValueAtTime(0.001, now+t+(last ? 0.58 : 0.20));
       o.connect(g); g.connect(actx.destination);
-      o.start(now+t); o.stop(now+t+0.21);
+      o.start(now+t); o.stop(now+t+(last ? 0.62 : 0.24));
     });
   } catch(e){}
 }

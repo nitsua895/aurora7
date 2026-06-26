@@ -12,7 +12,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 :root{--g:#84ffbe;--g2:#3aff8a;--gdim:#73d6a2;--gfaint:#04090506;--amber:#ffcf6b;--red:#ff6b6b;--cyan:#6fe9ff;--violet:#c98bff;--rose:#ff8fb3;--silver:#d3dbe1}
 
 .device{
-  position:relative;width:min(800px,100vw);height:min(680px,100vh);
+  position:relative;width:min(800px,100vw);height:min(680px,100svh);
   background:linear-gradient(158deg,#232923 0%,#191e19 45%,#121612 100%);
   border-radius:26px;padding:13px 13px 16px;
   box-shadow:0 0 0 1px #060906,inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.55),0 28px 72px rgba(0,0,0,.9),0 0 55px rgba(80,255,150,.032);
@@ -1273,18 +1273,18 @@ async function boot() {
     return;
   }
 
-  await W8(400);
-  addLine('> ARIA MK-IV TERMINAL // BOOT SEQUENCE', 'sys');
-  await W8(350);
-  addLine('> establishing encrypted channel ...', 'sys');
-  await W8(800);
-  addLine('> handshake confirmed', 'sys');
-  await W8(300);
-  addLine(ART.signal, 'ascii');
   await W8(700);
+  addLine('> ARIA MK-IV TERMINAL // BOOT SEQUENCE', 'sys');
+  await W8(700);
+  addLine('> establishing encrypted channel ...', 'sys');
+  await W8(1400);
+  addLine('> handshake confirmed', 'sys');
+  await W8(500);
+  addLine(ART.signal, 'ascii');
+  await W8(1100);
   addLine('// CHAPTER 01 — FIRST CONTACT', 'chapter');
-  await W8(200);
-  await playSeq(SCRIPT.boot, 'aria', 360);
+  await W8(700);
+  await playSeq(SCRIPT.boot, 'aria', 520);
   addLine('> GROUND UNIT 7 ACTIVE', 'sys');
   addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');
   stage=1;

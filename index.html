@@ -279,7 +279,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 
       <div class="game-wrap" id="gameWrap">
         <canvas id="gameCanvas"></canvas>
-        <div class="game-hint">SWIPE TO NAVIGATE · IHI-7 REENTRY APPROACH · 5 SECTORS · LARGE DEBRIS SCATTERS</div>
+        <div class="game-hint">SWIPE TO MOVE</div>
       </div>
 
       <!-- CINDER VOICE RECORDING — paste base64 data URI as src when ready -->
@@ -357,7 +357,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   <div class="nfc-label" id="nfcScanLabel">NFC CIPHER DETECTED</div>
   <div class="nfc-sub" id="nfcScanSub">READING ENCRYPTED TAG...</div>
   <div id="nfcProgressBar"><div id="nfcProgressFill"></div></div>
-  <div id="nfcTapPrompt">◈ &nbsp; TAP TO READ CIPHER &nbsp; ◈</div>
+  <div id="nfcTapPrompt">◈ &nbsp; TAP ANYWHERE TO READ &nbsp; ◈</div>
 </div>
 
 <script>
@@ -795,6 +795,49 @@ function blip(freq=720, dur=0.12) {
 function pulse(ms=30) {
   try { if (navigator.vibrate) navigator.vibrate(ms); } catch(e){}
 }
+function gameChirp(freq=1200, amp=0.035, dur=0.06) {
+  if (!actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    const now = actx.currentTime;
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(amp, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(now); o.stop(now + dur + 0.01);
+  } catch(e){}
+}
+function gameThud(freq=95, amp=0.09, dur=0.18) {
+  if (!actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    const now = actx.currentTime;
+    o.type = 'triangle'; o.frequency.value = freq;
+    o.frequency.exponentialRampToValueAtTime(freq * 0.28, now + dur);
+    g.gain.setValueAtTime(amp, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(now); o.stop(now + dur + 0.01);
+  } catch(e){}
+}
+function ambientBeep() {
+  if (!actx || actx.state !== 'running') return;
+  try {
+    const pool = [110,138,165,196,220,261,311,370,440,523];
+    const freq = pool[Math.floor(Math.random() * pool.length)] * (Math.random() < 0.25 ? 2 : 1);
+    const o = actx.createOscillator(), g = actx.createGain();
+    const now = actx.currentTime;
+    o.type = Math.random() < 0.55 ? 'sine' : 'triangle';
+    o.frequency.value = freq;
+    const amp = 0.010 + Math.random() * 0.016;
+    const dur = 0.18 + Math.random() * 0.55;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(amp, now + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(now); o.stop(now + dur + 0.05);
+  } catch(e){}
+}
 function playStatic(ms=250) {
   if (!actx) return;
   try {
@@ -867,11 +910,12 @@ function showNfcScanAnimation(cipher, onComplete) {
   const tapPrompt = document.getElementById('nfcTapPrompt');
 
   // Phase 1: show tap prompt — no audio yet (NFC loads have no user gesture)
+  try { document.activeElement?.blur(); } catch(e){} // dismiss any open keyboard
   overlay.classList.remove('confirmed', 'scanning');
   fill.style.transition = 'none';
   fill.style.width = '0%';
   label.textContent = 'NFC CIPHER DETECTED';
-  sub.textContent   = 'TAP ANYWHERE TO READ';
+  sub.textContent   = ''; // single prompt only — tapPrompt below handles CTA
   tapPrompt.style.display = '';
   overlay.classList.add('active'); // no 'scanning' class yet — CSS keeps canvas dim, shows tap prompt
 
@@ -1387,6 +1431,7 @@ function checkCipherParam() {
         const inp = document.getElementById('inp');
         inp.value = cipher.toUpperCase();
         submit();
+        setTimeout(()=>{ try { document.activeElement?.blur(); } catch(e){} }, 150);
       });
     } else {
       // First scan — simple flow
@@ -1627,6 +1672,8 @@ function startGame(arcade=false) {
   const entrySig = sigPct; // preserve the real signal so ARCADE never changes it
 
   wrap.classList.add('active');
+  document.getElementById('gpsBadge').style.display = 'none';
+  document.getElementById('waypointBadge').style.display = 'none';
   // Size canvas to fill the terminal screen area
   const rect = cv.getBoundingClientRect();
   const W  = cv.width  = Math.round(rect.width) || 340;
@@ -1687,7 +1734,7 @@ function startGame(arcade=false) {
   let sector=0,sectorProg=0,sectorLives=3,sectorFails=0;
   const MAX_FAILS=3;
   let sectorTransition=0,sectorRetryTimer=0;
-  let tick=0,done=false,lastTs=0,spawnAccum=0;
+  let tick=0,done=false,lastTs=0,spawnAccum=0,ambientTimer=0;
   let shipX=W/2,invincible=0;
   let debris=[],particles=[],shipTrail=[];
   const STARS=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.3+Math.random()*0.8,s:Math.random()}));
@@ -1787,6 +1834,8 @@ function startGame(arcade=false) {
     if(done)return; done=true;
     cleanup();
     wrap.classList.remove('active');
+    document.getElementById('gpsBadge').style.display = '';
+    if (currentWaypoint) document.getElementById('waypointBadge').style.display = 'flex';
 
     // ARCADE replay: no story progression, no signal cost — just a score line.
     if(arcade){
@@ -1857,6 +1906,21 @@ function startGame(arcade=false) {
         ctx.fillStyle=`rgba(${pRgb},0.7)`; ctx.shadowBlur=8;
         ctx.fillText(SECTOR_LABELS[prevIdx],W/2,H/2+14);
         ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+        // Satellite rising toward top
+        const satY=H*(0.10+0.50*p1);
+        const satA=p1>=0.82?(1-p1)/0.18:p1<0.09?p1/0.09:1;
+        ctx.save();
+        ctx.translate(W/2,satY);
+        ctx.globalAlpha=Math.max(0,satA);
+        ctx.strokeStyle=pCol;ctx.fillStyle=pCol;
+        ctx.shadowColor=pCol;ctx.shadowBlur=14;ctx.lineWidth=1.5;
+        ctx.fillRect(-10,-5,20,10);
+        ctx.strokeRect(-29,-2.5,15,5);ctx.strokeRect(14,-2.5,15,5);
+        for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(-29+i*3.75,-2.5);ctx.lineTo(-29+i*3.75,2.5);ctx.stroke();}
+        for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(14+i*3.75,-2.5);ctx.lineTo(14+i*3.75,2.5);ctx.stroke();}
+        ctx.beginPath();ctx.arc(3,-9,5,Math.PI,0);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(3,-9);ctx.lineTo(3,-14);ctx.stroke();
+        ctx.restore();
       } else {
         // Phase 2: incoming sector name
         const p2=sectorTransition/HALF;
@@ -1904,6 +1968,10 @@ function startGame(arcade=false) {
     }
     if(invincible>0) invincible=Math.max(0,invincible-dt);
 
+    // Spacey ambient bleeps
+    ambientTimer-=dt;
+    if(ambientTimer<=0){ambientBeep();ambientTimer=90+Math.random()*180;}
+
     // Engine trail
     shipTrail.unshift({x:shipX,y:sy});
     if(shipTrail.length>14)shipTrail.pop();
@@ -1927,7 +1995,7 @@ function startGame(arcade=false) {
       d.x+=d.vx*dt; d.y+=d.vy*dt; d.rot+=d.rotV*dt;
       if(!d.scattered&&d.type==='large'&&d.y>H*0.30){d.scattered=true;toScatter.push(d);}
     });
-    toScatter.forEach(d=>scatterDebris(d));
+    toScatter.forEach(d=>{ scatterDebris(d); gameChirp(1100+Math.random()*500,0.03,0.055); });
     debris=debris.filter(d=>d.y<H+30);
 
     // Collision
@@ -1937,10 +2005,12 @@ function startGame(arcade=false) {
           ptcl(shipX,sy,gc(),14);
           debris.splice(debris.indexOf(d),1);
           sectorLives--;invincible=90;
+          gameThud(85+Math.random()*30,0.09,0.18);
           if(!arcade) setSig(Math.max(8,36-sector*6-(3-sectorLives)*5));
           if(sectorLives<=0){
             if(sectorFails>=MAX_FAILS-1){endGame(false);return;}
             sectorFails++;sectorRetryTimer=120;
+            gameThud(52,0.13,0.32);
             debris=[];particles=[];shipTrail=[];
             raf=requestAnimationFrame(loop); return;
           }

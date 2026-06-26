@@ -859,123 +859,115 @@ function playUnlockSound() {
   } catch(e){}
 }
 function showNfcScanAnimation(cipher, onComplete) {
-  const overlay = document.getElementById('nfcScanOverlay');
-  const canvas  = document.getElementById('nfcScanCanvas');
-  const fill    = document.getElementById('nfcProgressFill');
-  const label   = document.getElementById('nfcScanLabel');
-  const sub     = document.getElementById('nfcScanSub');
+  const overlay   = document.getElementById('nfcScanOverlay');
+  const canvas    = document.getElementById('nfcScanCanvas');
+  const fill      = document.getElementById('nfcProgressFill');
+  const label     = document.getElementById('nfcScanLabel');
+  const sub       = document.getElementById('nfcScanSub');
   const tapPrompt = document.getElementById('nfcTapPrompt');
 
+  // Phase 1: show tap prompt — no audio yet (NFC loads have no user gesture)
   overlay.classList.remove('confirmed', 'scanning');
   fill.style.transition = 'none';
   fill.style.width = '0%';
   label.textContent = 'NFC CIPHER DETECTED';
-  sub.textContent   = 'READING ENCRYPTED TAG...';
-  tapPrompt.style.display = 'none';
-  overlay.classList.add('active', 'scanning');
+  sub.textContent   = 'TAP ANYWHERE TO READ';
+  tapPrompt.style.display = '';
+  overlay.classList.add('active'); // no 'scanning' class yet — CSS keeps canvas dim, shows tap prompt
 
-  // Best-effort audio unlock — NFC page load may have a prior gesture
-  unlockAudio();
-  if (!actx) initBlip();
-  try { actx.resume(); } catch(e){}
+  function beginScan() {
+    // This tap IS the user gesture — unlock audio now
+    overlay.classList.add('scanning');
+    sub.textContent = 'READING ENCRYPTED TAG...';
+    unlockAudio();
+    if (!actx) initBlip();
+    try { actx.resume(); } catch(e){}
 
-  hapticPattern([35, 55, 35, 55, 35]);
-  playNfcScanTone();
+    hapticPattern([35, 55, 35, 55, 35]);
+    playNfcScanTone();
 
-  const ctx2d = canvas.getContext('2d');
-  const CW = 180, CH = 180, cx = 90, cy = 90, maxR = 82;
-  let animId, confirmed = false;
+    const ctx2d = canvas.getContext('2d');
+    const CW = 180, CH = 180, cx = 90, cy = 90, maxR = 82;
+    let animId, confirmed = false;
 
-  // Expanding magnetic wave rings: each ring starts small, expands outward, fades
-  const rings = [];
-  let lastEmit = 0;
-  const EMIT_INTERVAL = 520; // ms between new rings
+    const rings = [];
+    let lastEmit = 0;
+    const EMIT_INTERVAL = 520;
 
-  function emitRing(now) {
-    rings.push({ born: now, r: 6 });
-  }
+    function emitRing(now) { rings.push({ born: now, r: 6 }); }
 
-  function drawFrame(ts) {
-    ctx2d.clearRect(0, 0, CW, CH);
-    const col    = confirmed ? '#ffcf6b' : '#74ffaf';
-    const colDim = confirmed ? 'rgba(255,207,107,0.18)' : 'rgba(116,255,175,0.18)';
+    function drawFrame(ts) {
+      ctx2d.clearRect(0, 0, CW, CH);
+      const col = confirmed ? '#ffcf6b' : '#74ffaf';
 
-    // Emit new rings on interval
-    if (ts - lastEmit > EMIT_INTERVAL) {
-      emitRing(ts);
-      lastEmit = ts;
-    }
+      if (ts - lastEmit > EMIT_INTERVAL) { emitRing(ts); lastEmit = ts; }
 
-    // Draw and age rings
-    for (let i = rings.length - 1; i >= 0; i--) {
-      const ring = rings[i];
-      const age  = ts - ring.born;
-      const dur  = 1600;
-      const t    = Math.min(age / dur, 1);
-      ring.r = 6 + (maxR - 6) * t;
-      const alpha = confirmed
-        ? 0.75 * (1 - t)
-        : 0.55 * (1 - t);
-      if (alpha <= 0.01) { rings.splice(i, 1); continue; }
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const ring = rings[i];
+        const age  = ts - ring.born;
+        const t    = Math.min(age / 1600, 1);
+        ring.r = 6 + (maxR - 6) * t;
+        const alpha = confirmed ? 0.75 * (1 - t) : 0.55 * (1 - t);
+        if (alpha <= 0.01) { rings.splice(i, 1); continue; }
+        ctx2d.beginPath();
+        ctx2d.arc(cx, cy, ring.r, 0, Math.PI * 2);
+        ctx2d.strokeStyle = col;
+        ctx2d.lineWidth = confirmed ? 1.8 : 1.4;
+        ctx2d.globalAlpha = alpha;
+        ctx2d.shadowColor = col;
+        ctx2d.shadowBlur  = confirmed ? 10 : 6;
+        ctx2d.stroke();
+        ctx2d.shadowBlur = 0;
+        ctx2d.globalAlpha = 1;
+      }
+
+      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.006);
       ctx2d.beginPath();
-      ctx2d.arc(cx, cy, ring.r, 0, Math.PI * 2);
-      ctx2d.strokeStyle = col;
-      ctx2d.lineWidth = confirmed ? 1.8 : 1.4;
-      ctx2d.globalAlpha = alpha;
+      ctx2d.arc(cx, cy, confirmed ? 7 : 4 + pulse, 0, Math.PI * 2);
+      ctx2d.fillStyle = col;
       ctx2d.shadowColor = col;
-      ctx2d.shadowBlur  = confirmed ? 10 : 6;
-      ctx2d.stroke();
+      ctx2d.shadowBlur  = confirmed ? 18 : 8 + 4 * pulse;
+      ctx2d.fill();
       ctx2d.shadowBlur = 0;
-      ctx2d.globalAlpha = 1;
+
+      const pct = Math.min(parseFloat(fill.style.width) || 0, 100) / 100;
+      if (pct > 0) {
+        ctx2d.beginPath();
+        ctx2d.arc(cx, cy, 18, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+        ctx2d.strokeStyle = col;
+        ctx2d.lineWidth = 2;
+        ctx2d.globalAlpha = 0.7;
+        ctx2d.stroke();
+        ctx2d.globalAlpha = 1;
+      }
+
+      animId = requestAnimationFrame(drawFrame);
     }
-
-    // Center dot — pulses gently
-    const pulse = 0.5 + 0.5 * Math.sin(ts * 0.006);
-    ctx2d.beginPath();
-    ctx2d.arc(cx, cy, confirmed ? 7 : 4 + pulse, 0, Math.PI * 2);
-    ctx2d.fillStyle = col;
-    ctx2d.shadowColor = col;
-    ctx2d.shadowBlur  = confirmed ? 18 : 8 + 4 * pulse;
-    ctx2d.fill();
-    ctx2d.shadowBlur = 0;
-
-    // Progress arc (thin, around center)
-    const pct = Math.min(parseFloat(fill.style.width) || 0, 100) / 100;
-    if (pct > 0) {
-      ctx2d.beginPath();
-      ctx2d.arc(cx, cy, 18, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
-      ctx2d.strokeStyle = col;
-      ctx2d.lineWidth = 2;
-      ctx2d.globalAlpha = 0.7;
-      ctx2d.stroke();
-      ctx2d.globalAlpha = 1;
-    }
-
     animId = requestAnimationFrame(drawFrame);
-  }
-  animId = requestAnimationFrame(drawFrame);
 
-  // Progress fills over 2.2s
-  setTimeout(() => { fill.style.transition = 'width 2.2s linear'; fill.style.width = '100%'; }, 30);
+    setTimeout(() => { fill.style.transition = 'width 2.2s linear'; fill.style.width = '100%'; }, 30);
 
-  // Confirm at 2.4s
-  setTimeout(() => {
-    confirmed = true;
-    overlay.classList.add('confirmed');
-    label.textContent = 'CIPHER VERIFIED';
-    sub.textContent   = cipher.toUpperCase();
-    hapticPattern([60, 35, 120]);
-    playNfcConfirmTone();
-    speakText('Cipher confirmed. Continuing mission.', false, false);
     setTimeout(() => {
-      overlay.classList.remove('active');
+      confirmed = true;
+      overlay.classList.add('confirmed');
+      label.textContent = 'CIPHER VERIFIED';
+      sub.textContent   = cipher.toUpperCase();
+      hapticPattern([60, 35, 120]);
+      playNfcConfirmTone();
+      speakText('Cipher confirmed. Continuing mission.', false, false);
       setTimeout(() => {
-        cancelAnimationFrame(animId);
-        overlay.classList.remove('confirmed', 'scanning');
-        onComplete();
-      }, 300);
-    }, 900);
-  }, 2400);
+        overlay.classList.remove('active');
+        setTimeout(() => {
+          cancelAnimationFrame(animId);
+          overlay.classList.remove('confirmed', 'scanning');
+          onComplete();
+        }, 300);
+      }, 900);
+    }, 2400);
+  }
+
+  overlay.addEventListener('click', beginScan, { once: true });
+  overlay.addEventListener('touchend', (e) => { e.preventDefault(); beginScan(); }, { once: true, passive: false });
 }
 
 // ═══════════════════════════════════════
@@ -1842,24 +1834,44 @@ function startGame(arcade=false) {
     lastTs = ts;
     tick++;
 
-    // Sector transition flash + label
+    // Sector transition — two phases: "CLEARED" then new sector label
     if(sectorTransition>0){
       sectorTransition=Math.max(0,sectorTransition-dt);
       const col=gc(),rgb=gcRgb();
       ctx.fillStyle=SECTOR_BG[Math.min(sector,4)]; ctx.fillRect(0,0,W,H);
       drawNebula(); drawPlanet();
-      const flashA=sectorTransition>55?((80-sectorTransition)/25)*0.4:(sectorTransition/55)*0.4;
-      ctx.fillStyle=`rgba(${rgb},${flashA})`; ctx.fillRect(0,0,W,H);
-      const labelA=sectorTransition>35?(1-(80-sectorTransition)/35):(sectorTransition/35);
-      ctx.globalAlpha=Math.max(0,Math.min(1,labelA));
-      const fs=Math.max(14,Math.round(H*0.046));
-      ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
-      ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=22;
-      ctx.fillText('— '+SECTOR_LABELS[Math.min(sector,4)]+' —',W/2,H/2-14);
-      ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
-      ctx.fillStyle=`rgba(${rgb},0.75)`; ctx.shadowBlur=8;
-      ctx.fillText(`SECTOR ${sector+1} OF ${SECTORS}`,W/2,H/2+14);
-      ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+      const HALF=70;
+      if(sectorTransition>HALF){
+        // Phase 1: previous sector cleared
+        const prevIdx=Math.min(sector-1,4);
+        const pCol=SECTOR_GLOW[prevIdx], pRgb=SECTOR_RGB[prevIdx];
+        const p1=(sectorTransition-HALF)/HALF;
+        const flashA=Math.sin(p1*Math.PI)*0.38;
+        ctx.fillStyle=`rgba(${pRgb},${flashA})`; ctx.fillRect(0,0,W,H);
+        ctx.globalAlpha=Math.max(0,Math.sin(p1*Math.PI));
+        const fs=Math.max(14,Math.round(H*0.046));
+        ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
+        ctx.fillStyle=pCol; ctx.shadowColor=pCol; ctx.shadowBlur=24;
+        ctx.fillText(`SECTOR ${sector} CLEARED`,W/2,H/2-14);
+        ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
+        ctx.fillStyle=`rgba(${pRgb},0.7)`; ctx.shadowBlur=8;
+        ctx.fillText(SECTOR_LABELS[prevIdx],W/2,H/2+14);
+        ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+      } else {
+        // Phase 2: incoming sector name
+        const p2=sectorTransition/HALF;
+        const flashA=Math.sin(p2*Math.PI)*0.4;
+        ctx.fillStyle=`rgba(${rgb},${flashA})`; ctx.fillRect(0,0,W,H);
+        ctx.globalAlpha=Math.max(0,Math.sin(p2*Math.PI));
+        const fs=Math.max(14,Math.round(H*0.046));
+        ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
+        ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=22;
+        ctx.fillText('— '+SECTOR_LABELS[Math.min(sector,4)]+' —',W/2,H/2-14);
+        ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
+        ctx.fillStyle=`rgba(${rgb},0.75)`; ctx.shadowBlur=8;
+        ctx.fillText(`SECTOR ${sector+1} OF ${SECTORS}`,W/2,H/2+14);
+        ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+      }
       raf=requestAnimationFrame(loop); return;
     }
 
@@ -1900,7 +1912,8 @@ function startGame(arcade=false) {
     if(sectorProg>=SECTOR_LEN){
       sector++;sectorProg=0;sectorLives=3;debris=[];particles=[];shipTrail=[];spawnAccum=0;
       if(sector>=SECTORS){endGame(true);return;}
-      sectorTransition=80; raf=requestAnimationFrame(loop); return;
+      blip(880,0.14); hapticPattern([30,20,80]);
+      sectorTransition=140; raf=requestAnimationFrame(loop); return;
     }
 
     // Time-based spawn accumulator (frame-rate independent)
@@ -1996,12 +2009,12 @@ function startGame(arcade=false) {
       ctx.fillRect(p.x-1.5,p.y-1.5,3,3);
     });
 
-    // Progress bar
+    // Progress bar — top of screen
     const prog=sectorProg/SECTOR_LEN;
     ctx.shadowBlur=0;
-    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,H-5,W,5);
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,6);
     ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6;
-    ctx.fillRect(0,H-5,W*prog,5);ctx.shadowBlur=0;
+    ctx.fillRect(0,0,W*prog,6);ctx.shadowBlur=0;
 
     // HUD
     const fs=Math.max(11,Math.round(H*0.038));

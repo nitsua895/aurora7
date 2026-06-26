@@ -209,7 +209,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 #nfcScanOverlay{position:fixed;inset:0;z-index:9999;background:rgba(4,9,5,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:0;pointer-events:none;transition:opacity 0.28s ease}
 #nfcScanOverlay.active{opacity:1;pointer-events:all}
 #nfcScanCanvas{display:block}
-.nfc-label{font-size:11px;letter-spacing:3.5px;color:var(--g);text-transform:uppercase;animation:nfcBlink 0.7s step-end infinite}
+.nfc-label{font-size:11px;letter-spacing:3.5px;color:var(--g);text-transform:uppercase;animation:none}
+#nfcScanOverlay.scanning .nfc-label{animation:nfcBlink 0.7s step-end infinite}
 @keyframes nfcBlink{0%,100%{opacity:1}50%{opacity:0.22}}
 .nfc-sub{font-size:9px;letter-spacing:2px;color:var(--gdim);text-transform:uppercase;opacity:.75}
 #nfcProgressBar{width:160px;height:2px;background:rgba(116,255,175,0.1);border-radius:1px;overflow:hidden}
@@ -1883,35 +1884,18 @@ function startGame(arcade=false) {
     lastTs = ts;
     tick++;
 
-    // Sector transition — two phases: "CLEARED" then new sector label
+    // Sector transition — 3 phases: satellite rises → CLEARED → new sector
     if(sectorTransition>0){
       sectorTransition=Math.max(0,sectorTransition-dt);
       const col=gc(),rgb=gcRgb();
       ctx.fillStyle=SECTOR_BG[Math.min(sector,4)]; ctx.fillRect(0,0,W,H);
       drawNebula(); drawPlanet();
-      const HALF=70;
-      if(sectorTransition>HALF){
-        // Phase 1: previous sector cleared
-        const prevIdx=Math.min(sector-1,4);
-        const pCol=SECTOR_GLOW[prevIdx], pRgb=SECTOR_RGB[prevIdx];
-        const p1=(sectorTransition-HALF)/HALF;
-        const flashA=Math.sin(p1*Math.PI)*0.38;
-        ctx.fillStyle=`rgba(${pRgb},${flashA})`; ctx.fillRect(0,0,W,H);
-        ctx.globalAlpha=Math.max(0,Math.sin(p1*Math.PI));
-        const fs=Math.max(14,Math.round(H*0.046));
-        ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
-        ctx.fillStyle=pCol; ctx.shadowColor=pCol; ctx.shadowBlur=24;
-        ctx.fillText(`SECTOR ${sector} CLEARED`,W/2,H/2-14);
-        ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
-        ctx.fillStyle=`rgba(${pRgb},0.7)`; ctx.shadowBlur=8;
-        ctx.fillText(SECTOR_LABELS[prevIdx],W/2,H/2+14);
-        ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
-        // Satellite rising toward top
-        const satY=H*(0.10+0.50*p1);
-        const satA=p1>=0.82?(1-p1)/0.18:p1<0.09?p1/0.09:1;
+      const prevIdx=Math.min(Math.max(sector-1,0),4);
+      const pCol=SECTOR_GLOW[prevIdx], pRgb=SECTOR_RGB[prevIdx];
+      const drawSat=(satY,alpha)=>{
         ctx.save();
         ctx.translate(W/2,satY);
-        ctx.globalAlpha=Math.max(0,satA);
+        ctx.globalAlpha=Math.max(0,alpha);
         ctx.strokeStyle=pCol;ctx.fillStyle=pCol;
         ctx.shadowColor=pCol;ctx.shadowBlur=14;ctx.lineWidth=1.5;
         ctx.fillRect(-10,-5,20,10);
@@ -1921,20 +1905,42 @@ function startGame(arcade=false) {
         ctx.beginPath();ctx.arc(3,-9,5,Math.PI,0);ctx.stroke();
         ctx.beginPath();ctx.moveTo(3,-9);ctx.lineTo(3,-14);ctx.stroke();
         ctx.restore();
-      } else {
-        // Phase 2: incoming sector name
-        const p2=sectorTransition/HALF;
-        const flashA=Math.sin(p2*Math.PI)*0.4;
-        ctx.fillStyle=`rgba(${rgb},${flashA})`; ctx.fillRect(0,0,W,H);
-        ctx.globalAlpha=Math.max(0,Math.sin(p2*Math.PI));
+        ctx.globalAlpha=1;ctx.shadowBlur=0;
+      };
+      if(sectorTransition>80){
+        // Phase A (140→80): satellite rises, screen bare
+        const pA=(sectorTransition-80)/60; // 1→0
+        ctx.fillStyle=`rgba(${pRgb},0.10)`; ctx.fillRect(0,0,W,H);
+        const satY=H*(0.08+0.70*pA);
+        const satA=pA>0.88?(1-pA)/0.12:1;
+        drawSat(satY,satA);
+      } else if(sectorTransition>40){
+        // Phase B (80→40): CLEARED confirmation
+        const pB=(sectorTransition-40)/40; // 1→0
+        ctx.fillStyle=`rgba(${pRgb},${Math.sin(pB*Math.PI)*0.35})`; ctx.fillRect(0,0,W,H);
+        drawSat(H*0.08, Math.max(0,1-(1-pB)*3));
+        ctx.globalAlpha=Math.max(0,Math.sin(pB*Math.PI));
         const fs=Math.max(14,Math.round(H*0.046));
-        ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
-        ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=22;
+        ctx.font=`bold ${fs}px Courier New`;ctx.textAlign='center';
+        ctx.fillStyle=pCol;ctx.shadowColor=pCol;ctx.shadowBlur=24;
+        ctx.fillText(`SECTOR ${sector} CLEARED`,W/2,H/2-14);
+        ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
+        ctx.fillStyle=`rgba(${pRgb},0.7)`;ctx.shadowBlur=8;
+        ctx.fillText(SECTOR_LABELS[prevIdx],W/2,H/2+14);
+        ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.textAlign='left';
+      } else {
+        // Phase C (40→0): incoming sector name
+        const pC=sectorTransition/40; // 1→0
+        ctx.fillStyle=`rgba(${rgb},${Math.sin(pC*Math.PI)*0.4})`; ctx.fillRect(0,0,W,H);
+        ctx.globalAlpha=Math.max(0,Math.sin(pC*Math.PI));
+        const fs=Math.max(14,Math.round(H*0.046));
+        ctx.font=`bold ${fs}px Courier New`;ctx.textAlign='center';
+        ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=22;
         ctx.fillText('— '+SECTOR_LABELS[Math.min(sector,4)]+' —',W/2,H/2-14);
         ctx.font=`${Math.max(10,Math.round(H*0.033))}px Courier New`;
-        ctx.fillStyle=`rgba(${rgb},0.75)`; ctx.shadowBlur=8;
+        ctx.fillStyle=`rgba(${rgb},0.75)`;ctx.shadowBlur=8;
         ctx.fillText(`SECTOR ${sector+1} OF ${SECTORS}`,W/2,H/2+14);
-        ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
+        ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.textAlign='left';
       }
       raf=requestAnimationFrame(loop); return;
     }

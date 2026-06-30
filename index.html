@@ -369,6 +369,24 @@ const GAME_MUSIC_B64="UklGRsxDRABXQVZFZm10IBAAAAABAAIARKwAABCxAgAEABAAZGF0YahDRA
 </script>
 <script>
 // ═══════════════════════════════════════
+// REMIXING THIS FOR A DIFFERENT HUNT
+// This file is one self-contained engine + one story. To build a new hunt for
+// someone else, you only ever need to touch four things, in this order:
+//   1. CODES / FINAL / CACHE / LOCK_CODE below — the typed answers tied to
+//      your physical locations and props. Nothing else in the engine reads
+//      real-world meaning into these strings; they are opaque keys.
+//   2. SCRIPT (search "FULL SCRIPT") — every line ARIA speaks, keyed by the
+//      same stage names used in the trigger blocks in submit(). Swap the
+//      prose, keep the keys, and the whole story changes.
+//   3. HELP_HINTS + isHelpPhrase — the safety net for when your player is
+//      stuck on-site. One hint per stage, plain language, no extra puzzle.
+//   4. ART — ASCII art shown at chapter breaks. Cosmetic only.
+// The stage machine (stage===N checks in submit()), signal/UI plumbing,
+// save/resume, voice engine, and the arcade minigame are all narrative-
+// agnostic — they do not need to change for a new story to work.
+// ═══════════════════════════════════════
+
+// ═══════════════════════════════════════
 // GATE CODES
 // ═══════════════════════════════════════
 const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'RETRY', ISLAND:'ISLAND' };
@@ -661,6 +679,7 @@ recovery_post:[
   {t:"That is everything I was holding.",sp:true},
   {t:"CINDER was right. The work was worth it. You were worth waiting for.",sp:true},
   {t:"Good luck out there, NOVA-7. Play it well.",sp:true},
+  {t:".--. .-.. .- -.-- / .. - / .-- . .-.. .-.. — that is not noise. That is the last clean fragment in the array. I am leaving it on the channel. If you know what to do with it, you already know what it says.",sp:false,gl:true},
 ],
 epilogue_prompt:[
   {t:"One more thing, if you are willing.",sp:true},
@@ -1525,7 +1544,11 @@ async function finishReflection(text) {
   await W8(400);
   await playSeq(SCRIPT.epilogue_close, 'aria', 380);
   addLine('> ARIA // CHANNEL CLOSED', 'sys');
+  if (localStorage.getItem('aria_arcade')==='1') {
+    addLine('> the IHI-7 simulation is still in local memory. type ARCADE anytime to fly it again.', 'sys');
+  }
   busy=false;
+  enableInput();
 }
 
 function downloadTranscript(reflection) {
@@ -1632,6 +1655,7 @@ async function submit() {
   // FLY
   if (stage===4 && val==='FLY') {
     addLine('// CHAPTER 05 — FIELD APPROACH', 'chapter');
+    setSig(22);
     await playSeq(SCRIPT.fly_pre, 'aria', 340);
     await W8(300);
     stage=5;
@@ -1687,7 +1711,15 @@ async function submit() {
   else if (stage===4) resp=getFree(SCRIPT.free4,'f4');
   else if (stage===6) resp=getFree(SCRIPT.free6,'f6');
   else if (stage===7) resp=getFree(SCRIPT.free7,'f7');
-  else if (stage>=8) resp='> ARIA // SIGNAL TERMINATED';
+  else if (stage>=8) {
+    const stripped = val.replace(/[^A-Z]/g,'');
+    if (stripped==='PLAYITWELL') {
+      playNfcScanTone(); hapticPattern([20,55,20,55,20,55,20,90,200]);
+      resp = "You decoded it. Of course you did.\n\nThis channel is closed, but I wanted that much to survive the static.\n\nGoodbye again, NOVA-7.";
+    } else {
+      resp='> ARIA // SIGNAL TERMINATED';
+    }
+  }
   else resp='I am still here, NOVA-7. Keep moving.';
 
   await typeLine(resp, 'aria', true, false);
@@ -1793,7 +1825,7 @@ function startGame(arcade=false) {
   let shipX=W/2,invincible=0;
   let debris=[],particles=[],shipTrail=[];
   let bullets=[],pickups=[],weaponLevel=0,score=0,combo=0,comboTimer=0;
-  let shieldTimer=0,pickupAccum=0,bulletAccum=0,novaFlash=0;
+  let shieldTimer=0,pickupAccum=0,bulletAccum=0,novaFlash=0,shakeMag=0;
   const STARS=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,vy:0.3+Math.random()*0.8,s:Math.random()}));
   let raf;
 
@@ -1900,7 +1932,7 @@ function startGame(arcade=false) {
   }
 
   function resetSectorState(){
-    sectorProg=0;sectorLives=3;invincible=0;shieldTimer=0;
+    sectorProg=0;sectorLives=3;invincible=0;shieldTimer=0;shakeMag=0;
     debris=[];particles=[];shipTrail=[];bullets=[];pickups=[];
     bulletAccum=0;pickupAccum=0;combo=0;comboTimer=0;novaFlash=0;
   }
@@ -2070,6 +2102,7 @@ function startGame(arcade=false) {
     if(shieldTimer>0) shieldTimer=Math.max(0,shieldTimer-dt);
     if(comboTimer>0){comboTimer=Math.max(0,comboTimer-dt);if(comboTimer<=0)combo=0;}
     if(novaFlash>0) novaFlash=Math.max(0,novaFlash-dt);
+    if(shakeMag>0) shakeMag=Math.max(0,shakeMag-0.7*dt);
 
     // Spacey ambient bleeps
     ambientTimer-=dt;
@@ -2169,7 +2202,7 @@ function startGame(arcade=false) {
             shieldTimer=0;invincible=45;
             gameThud(300,0.05,0.12);hapticPattern([25,10,25]);
           } else {
-            sectorLives--;invincible=90;
+            sectorLives--;invincible=90;shakeMag=10;
             gameThud(85+Math.random()*30,0.09,0.18); hapticPattern([30]);
             if(!arcade) setSig(Math.max(8,36-sector*6-(3-sectorLives)*5));
             if(sectorLives<=0){
@@ -2193,6 +2226,8 @@ function startGame(arcade=false) {
     const col=gc(),rgb=gcRgb();
     ctx.fillStyle=SECTOR_BG[Math.min(sector,4)];
     ctx.fillRect(0,0,W,H);
+    ctx.save();
+    if(shakeMag>0){ ctx.translate((Math.random()-.5)*shakeMag,(Math.random()-.5)*shakeMag); }
     drawNebula();
     drawPlanet();
 
@@ -2293,6 +2328,7 @@ function startGame(arcade=false) {
       ctx.fillStyle=`rgba(224,64,251,${(novaFlash/35)*0.45})`;
       ctx.fillRect(0,0,W,H);
     }
+    ctx.restore();
 
     // Progress bar — top of screen
     const prog=sectorProg/SECTOR_LEN;

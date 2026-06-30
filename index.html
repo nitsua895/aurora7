@@ -1591,8 +1591,12 @@ async function submit() {
   if (DEV_MODE && val === 'DEV') { busy=false; enableInput(); toggleDev(); return; }
 
   // ARCADE replay — available after completing the satellite approach
-  if (val === 'ARCADE' && stage >= 6 && localStorage.getItem('aria_arcade') === '1') {
+  if (val === 'ARCADE' && stage >= 6) {
     addLine('> REENTRY SIMULATION INITIATED — 8 SECTORS — NO SIGNAL COST', 'sys');
+    try {
+      const pb = JSON.parse(localStorage.getItem('aria_arcade_pb')||'null');
+      if(pb) addLine('> PERSONAL BEST: '+pb.score+' pts — '+pb.cleared+'/8 sectors ('+pb.date+')', 'sys');
+    } catch(e){}
     await W8(400);
     startGame(true);
     busy = false;
@@ -1761,6 +1765,8 @@ function startGame(arcade=false) {
   document.getElementById('gpsBadge').style.display = 'none';
   document.getElementById('waypointBadge').style.display = 'none';
   startGameMusic();
+  // Force layout reflow so display:flex has committed before measuring
+  void wrap.offsetHeight;
   // Size canvas to fill the terminal screen area
   const rect = cv.getBoundingClientRect();
   const W  = cv.width  = Math.round(rect.width) || 340;
@@ -1898,7 +1904,8 @@ function startGame(arcade=false) {
     if(!eligible.length)return;
     const type=eligible[Math.floor(Math.random()*eligible.length)];
     const cols={POWER:'#ffcc00',SHIELD:'#4de8ff',LIFE:'#74ffaf',NOVA:'#e040fb'};
-    pickups.push({x:30+Math.random()*(W-60),y:-20,vy:0.85+Math.random()*0.4,
+    const pSec=Math.min(sector,4);
+    pickups.push({x:30+Math.random()*(W-60),y:-20,vy:2.2+pSec*0.5+Math.random()*1.0,
       type,col:cols[type],pulse:Math.random()*Math.PI*2});
   }
 
@@ -1945,17 +1952,31 @@ function startGame(arcade=false) {
     document.getElementById('gpsBadge').style.display = '';
     if (currentWaypoint) document.getElementById('waypointBadge').style.display = 'flex';
 
-    // ARCADE replay: no story progression, no signal cost — just a score line.
+    // ARCADE replay: no story progression, no signal cost — track high score.
     if(arcade){
       const cleared = won ? SECTORS : sector;
+      // Persist high score
+      let pb = null;
+      try {
+        const stored = JSON.parse(localStorage.getItem('aria_arcade_pb')||'null');
+        pb = stored;
+        if(!pb || score > pb.score || (score===pb.score && cleared > pb.cleared)) {
+          pb = {score, cleared, date: new Date().toLocaleDateString()};
+          localStorage.setItem('aria_arcade_pb', JSON.stringify(pb));
+        }
+      } catch(e){}
       if(won){
         playNfcScanTone(); hapticPattern([20,55,20,55,20,55,20,90,200]);
-        addLine('> SIM COMPLETE — ALL '+SECTORS+' SECTORS CLEARED. CLEAN RUN, NOVA-7.','sys');
+        addLine('> SIM COMPLETE — ALL '+SECTORS+' SECTORS CLEARED.','sys');
+        if(sectorFails===0) addLine('> FLAWLESS RUN — no sectors failed. NOVA-7 flies clean.','sys');
+        addLine('> SCORE: '+score+' pts'+(pb&&pb.score>score?' — PERSONAL BEST: '+pb.score+' pts':'  ← NEW PERSONAL BEST'),'sys');
       } else {
         playLoseSound(); hapticPattern([60,30,60,30,80]);
-        addLine('> SIM ENDED — '+cleared+'/'+SECTORS+' SECTORS CLEARED. RUN IT BACK: TYPE "ARCADE".','sys');
+        addLine('> SIM ENDED — '+cleared+'/'+SECTORS+' SECTORS | SCORE: '+score+' pts','sys');
+        if(pb) addLine('> PERSONAL BEST: '+pb.score+' pts — '+pb.cleared+'/'+SECTORS+' sectors cleared','sys');
+        addLine('> TYPE "ARCADE" TO FLY IT AGAIN','sys');
       }
-      setSig(entrySig); // restore the real signal reading unchanged
+      setSig(entrySig);
       enableInput();
       return;
     }
@@ -2129,12 +2150,12 @@ function startGame(arcade=false) {
       if(bulletAccum>=fireRate){
         bulletAccum=0;
         const offsets=[[-0],[-9,9],[-14,0,14]][weaponLevel-1];
-        offsets.forEach(ox=>bullets.push({x:shipX+ox,y:sy-10,vy:-9,col:gc()}));
+        offsets.forEach(ox=>bullets.push({x:shipX+ox,y:sy-10,vy:-9,vx:ox*0.28,col:gc()}));
         gameChirp(1600+Math.random()*300,0.016,0.03);
       }
     }
-    bullets.forEach(b=>{b.y+=b.vy*dt;});
-    bullets=bullets.filter(b=>b.y>-12);
+    bullets.forEach(b=>{b.y+=b.vy*dt; if(b.vx) b.x+=b.vx*dt;});
+    bullets=bullets.filter(b=>b.y>-12&&b.x>-20&&b.x<W+20);
 
     // Pickups
     pickupAccum+=dt;
@@ -2157,18 +2178,24 @@ function startGame(arcade=false) {
     toScatter.forEach(d=>{ scatterDebris(d); gameChirp(1100+Math.random()*500,0.03,0.055); });
     debris=debris.filter(d=>d.y<H+30);
 
-    // Bullet–debris collision
+    // Bullet–debris collision (large pieces scatter; small pieces destroy)
     const bHit=new Set();
     for(const b of bullets){
       for(let i=debris.length-1;i>=0;i--){
         const d=debris[i];
-        if(d.type==='large')continue;
         if(Math.abs(d.x-b.x)<d.size*0.65&&Math.abs(d.y-b.y)<d.size*0.65){
-          ptcl(d.x,d.y,d.col,6);
-          score+=10*(combo>0?1+Math.floor(combo/4):1);
-          combo++;comboTimer=70;
-          gameChirp(1300+Math.random()*500,0.032,0.05);
-          bHit.add(b);debris.splice(i,1);break;
+          bHit.add(b);
+          if(d.type==='large'){
+            scatterDebris(d);
+            gameChirp(700+Math.random()*300,0.05,0.09);
+            score+=5*(combo>0?1+Math.floor(combo/4):1);
+          } else {
+            ptcl(d.x,d.y,d.col,6);
+            score+=10*(combo>0?1+Math.floor(combo/4):1);
+            combo++;comboTimer=70;
+            gameChirp(1300+Math.random()*500,0.032,0.05);
+          }
+          debris.splice(i,1);break;
         }
       }
     }
@@ -2295,14 +2322,20 @@ function startGame(arcade=false) {
       ctx.fill();ctx.shadowBlur=0;
     });
 
-    // Bullets
+    // Bullets — draw as short line in travel direction
     if(bullets.length){
       ctx.shadowBlur=8;
       bullets.forEach(b=>{
-        ctx.beginPath();ctx.arc(b.x,b.y,2.5,0,Math.PI*2);
-        ctx.fillStyle=b.col;ctx.shadowColor=b.col;ctx.fill();
+        const vx=b.vx||0, vy=b.vy;
+        const len=9, mag=Math.sqrt(vx*vx+vy*vy)||1;
+        ctx.beginPath();
+        ctx.moveTo(b.x,b.y);
+        ctx.lineTo(b.x-(vx/mag)*len,b.y-(vy/mag)*len);
+        ctx.strokeStyle=b.col;ctx.shadowColor=b.col;ctx.lineWidth=2.5;ctx.stroke();
+        ctx.beginPath();ctx.arc(b.x,b.y,2,0,Math.PI*2);
+        ctx.fillStyle=b.col;ctx.fill();
       });
-      ctx.shadowBlur=0;
+      ctx.lineWidth=1;ctx.shadowBlur=0;
     }
 
     // Ship (shield: faster blink rate, no hit-flash tint)

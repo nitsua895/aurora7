@@ -23,6 +23,10 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .aurora-mark{color:var(--silver);opacity:.95;flex-shrink:0;filter:drop-shadow(0 0 3px rgba(211,219,225,.45))}
 .leds{display:flex;gap:6px}
 .led{width:7px;height:7px;border-radius:50%;transition:all .5s}
+.led.tx{animation:ledTx .28s steps(2) infinite}
+@keyframes ledTx{50%{opacity:.12}}
+#sigLabel.pulse{animation:sigPulse .8s ease-out 1}
+@keyframes sigPulse{0%{text-shadow:0 0 14px currentColor;filter:brightness(1.8)}100%{text-shadow:none;filter:none}}
 
 .crt-wrap{
   flex:1;position:relative;border-radius:16px;overflow:hidden;
@@ -46,8 +50,31 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   position:absolute;inset:0;z-index:19;pointer-events:none;border-radius:16px;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.11) 0,rgba(0,0,0,.11) 1px,transparent 1px,transparent 3px);
 }
+.crt-grille{
+  position:absolute;inset:0;z-index:18;pointer-events:none;border-radius:16px;
+  background:repeating-linear-gradient(90deg,rgba(255,40,90,.014) 0 1px,rgba(40,255,120,.014) 1px 2px,rgba(40,120,255,.014) 2px 3px);
+}
+.crt-rollbar{position:absolute;inset:0;z-index:18;pointer-events:none;border-radius:16px;overflow:hidden}
+.crt-rollbar::before{
+  content:'';position:absolute;left:0;top:-110px;width:100%;height:110px;
+  background:linear-gradient(180deg,transparent 0%,rgba(150,255,190,.025) 42%,rgba(150,255,190,.055) 50%,rgba(150,255,190,.025) 58%,transparent 100%);
+  animation:rollBar 8s linear infinite;
+}
+@keyframes rollBar{0%{transform:translateY(0)}100%{transform:translateY(920px)}}
 .screen{position:relative;z-index:10;height:100%;display:flex;flex-direction:column;padding:11px 13px 8px;animation:flicker 11s infinite}
 @keyframes flicker{0%,92%,94.5%,97%,100%{opacity:1}93%{opacity:.88}95%{opacity:.93}}
+.crt-wrap.power-on .screen{animation:powerOn 1.1s cubic-bezier(.23,1,.32,1),flicker 11s 1.1s infinite;transform-origin:50% 50%}
+@keyframes powerOn{
+  0%{transform:scaleY(.005) scaleX(.55);filter:brightness(7) saturate(0)}
+  30%{transform:scaleY(.018) scaleX(1.02);filter:brightness(5) saturate(.3)}
+  55%{transform:scaleY(1.015) scaleX(1);filter:brightness(2) saturate(.8)}
+  75%{transform:none;filter:brightness(1.35) saturate(1)}
+  100%{transform:none;filter:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .crt-rollbar::before,.crt-glare{animation:none}
+  .crt-wrap.power-on .screen{animation:flicker 11s infinite}
+}
 
 .hrow{
   display:flex;justify-content:space-between;align-items:center;
@@ -77,13 +104,24 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .feed::-webkit-scrollbar{width:3px}
 .feed::-webkit-scrollbar-thumb{background:var(--gdim)}
 
-.line{margin-bottom:5px;white-space:pre-wrap;word-break:break-word}
+.line{margin-bottom:5px;white-space:pre-wrap;word-break:break-word;animation:lineIn .25s ease-out}
+@keyframes lineIn{0%{opacity:0;filter:brightness(2.4)}60%{opacity:1;filter:brightness(1.5)}100%{opacity:1;filter:brightness(1)}}
 .line.sys{color:#86dcad;font-size:11.5px;letter-spacing:1px}
 .line.me{color:var(--amber)}
 .line.aria{color:#9affca;text-shadow:0 0 6px rgba(120,255,180,.28)}
-.line.glitch{color:var(--violet);opacity:.9;text-shadow:0 0 12px rgba(201,139,255,.5);letter-spacing:.5px}
+.line.glitch{color:var(--violet);opacity:.9;letter-spacing:.5px;animation:lineIn .25s ease-out,chromaJit 1.7s steps(2) infinite}
+@keyframes chromaJit{
+  0%,100%{text-shadow:0 0 12px rgba(201,139,255,.5),-1.5px 0 rgba(255,60,90,.30),1.5px 0 rgba(80,200,255,.30)}
+  50%{text-shadow:0 0 12px rgba(201,139,255,.5),1.5px 0 rgba(255,60,90,.30),-1.5px 0 rgba(80,200,255,.30)}
+}
 .line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.9}
-.line.chapter{color:var(--cyan);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px;text-shadow:0 0 8px rgba(111,233,255,.4)}
+.line.chapter{color:var(--cyan);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px;text-shadow:0 0 8px rgba(111,233,255,.4);position:relative;overflow:hidden}
+.line.chapter::after{
+  content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(111,233,255,.13),transparent);
+  animation:chapterSweep 2.4s ease-out 1 forwards;
+}
+@keyframes chapterSweep{to{left:130%}}
 .line.hilite{color:var(--amber);font-weight:bold;letter-spacing:1px;text-shadow:0 0 12px rgba(255,207,107,.65)}
 .line.warn{color:var(--red)}
 .line.egg{color:var(--rose);font-style:italic;text-shadow:0 0 10px rgba(255,143,179,.5)}
@@ -103,7 +141,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   outline:none;letter-spacing:1px;border-radius:2px;transition:opacity .2s;
   -webkit-appearance:none;
 }
-.input-row input:focus{border-color:var(--g)}
+.input-row input:focus{border-color:var(--g);box-shadow:0 0 12px rgba(116,255,175,.16),inset 0 0 10px rgba(116,255,175,.04)}
 .input-row input::placeholder{color:var(--gdim);opacity:.5}
 .send-btn{
   background:rgba(116,255,175,.07);border:1px solid var(--g);color:var(--g);
@@ -250,7 +288,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       ARIA MK-IV // AURORA TERMINAL</span>
     <div class="leds">
       <div class="led" id="ledR" style="background:#180000"></div>
-      <div class="led" style="background:#ffcf6b;opacity:.5;box-shadow:0 0 4px #ffcf6b"></div>
+      <div class="led" id="ledA" style="background:#ffcf6b;opacity:.5;box-shadow:0 0 4px #ffcf6b"></div>
       <div class="led" id="ledG" style="background:#74ffaf;box-shadow:0 0 8px #74ffaf"></div>
     </div>
   </div>
@@ -258,6 +296,8 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   <div class="crt-wrap">
     <div class="crt-glass"></div>
     <div class="crt-scanlines"></div>
+    <div class="crt-grille"></div>
+    <div class="crt-rollbar"></div>
     <div class="crt-glare"></div>
     <div class="screen">
       <div class="hrow">
@@ -747,8 +787,11 @@ function clearSave() {
 // SIGNAL UI
 // ═══════════════════════════════════════
 function setSig(p) {
+  const changed = p !== sigPct;
   sigPct = p;
-  document.getElementById('sigLabel').textContent = 'SIG '+p+'%';
+  const lbl = document.getElementById('sigLabel');
+  lbl.textContent = 'SIG '+p+'%';
+  if (changed) { lbl.classList.remove('pulse'); void lbl.offsetWidth; lbl.classList.add('pulse'); }
   const pips = [0,1,2,3,4].map(i=>document.getElementById('p'+i));
   const on = p>=58?4:p>=42?3:p>=26?2:p>=12?1:0;
   pips.forEach((pip,i)=>{ pip.classList.toggle('on', i<on); });
@@ -1232,6 +1275,8 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
     const cur = document.createElement('span');
     cur.className='cursor';
     feed.appendChild(d);
+    const ledA = document.getElementById('ledA');
+    ledA.classList.add('tx'); // amber LED strobes while the channel is transmitting
     let i=0;
     const base = glitch?65:48, rnd=glitch?39:27;
     (function step(){
@@ -1242,7 +1287,7 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
       if (i<text.length) {
         const pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
         setTimeout(step, pause);
-      } else { cur.remove(); res(); }
+      } else { cur.remove(); ledA.classList.remove('tx'); res(); }
     })();
   });
 }
@@ -1423,6 +1468,10 @@ function beginTransmission() {
   const overlay = document.getElementById('introOverlay');
   overlay.classList.add('hidden');
   setTimeout(()=>overlay.remove(), 650);
+  // CRT power-on flash as the terminal comes alive
+  const crt = document.querySelector('.crt-wrap');
+  crt.classList.add('power-on');
+  setTimeout(()=>crt.classList.remove('power-on'), 1300);
   boot();
 }
 setTimeout(()=>{
@@ -1912,7 +1961,9 @@ function startGame(arcade=false) {
     const types=['POWER','POWER','SHIELD','LIFE','NOVA','BOMB'];
     const eligible=types.filter(t=>{
       if(t==='LIFE'&&sectorLives>=3)return false;
-      if(t==='NOVA'&&weaponLevel<1)return false;
+      // NOVA is the story-mode screen-clear; BOMB is the arcade one (also hits
+      // enemies + chips boss HP). Never offer both — they read as duplicates.
+      if(t==='NOVA'&&(weaponLevel<1||arcade))return false;
       if(t==='BOMB'&&!arcade)return false;
       return true;
     });
@@ -1994,11 +2045,13 @@ function startGame(arcade=false) {
   function spawnBoss(){
     if(bossSpawnedThisSector||boss)return;
     const bd=BOSS_DEFS[Math.floor(sector/2)%BOSS_DEFS.length];
-    boss={x:W/2,y:-bd.size-10,targetY:H*0.18,
+    boss={x:W/2,y:-bd.size-10,targetY:H*0.26,
       hp:bd.hp,maxHp:bd.hp,size:bd.size,col:bd.col,rgb:bd.rgb,name:bd.name,
       vx:1.5,phase:0,shootTimer:100,invincible:0,enraged:false,
     };
     bossFreeze=true; bossSpawnedThisSector=true;
+    // Never let a weaponless ship face a boss — drop a POWER cell immediately
+    if(weaponLevel===0)pickups.push({x:W/2,y:-20,vy:2.4,type:'POWER',col:'#ffcc00',pulse:0});
     gameChirp(200+Math.random()*50,0.09,0.28); hapticPattern([30,20,30,20,60]);
   }
 
@@ -2281,7 +2334,8 @@ function startGame(arcade=false) {
       if(bulletAccum>=fireRate){
         bulletAccum=0;
         const offsets=[[-0],[-9,9],[-14,0,14]][weaponLevel-1];
-        offsets.forEach(ox=>bullets.push({x:shipX+ox,y:sy-10,vy:-9,vx:ox*0.28,col:gc()}));
+        const bSpd=-(8.2+weaponLevel*1.2); // each ⚡ tier: faster fire AND faster bullets
+        offsets.forEach(ox=>bullets.push({x:shipX+ox,y:sy-10,vy:bSpd,vx:ox*0.28,col:gc()}));
         gameChirp(1600+Math.random()*300,0.016,0.03);
       }
     }
@@ -2364,7 +2418,7 @@ function startGame(arcade=false) {
               ptcl(boss.x,boss.y,boss.col,32);shakeMag=24;
               score+=bScore;combo+=8;comboTimer=180;
               stopGameMusic(true);playNfcScanTone();hapticPattern([20,55,20,55,20,55,20,90,200]);
-              boss=null;bossFreeze=false;
+              boss=null;bossFreeze=false;bossSpawnedThisSector=false;
               sector++;sectorProg=0;sectorLives=3;debris=[];particles=[];shipTrail=[];spawnAccum=0;
               enemies=[];enemyBullets=[];enemyAccum=0;
               if(sector>=SECTORS){endGame(true);return;}
@@ -2405,9 +2459,10 @@ function startGame(arcade=false) {
             const bIdx=Math.floor(sector/2)%3;
             const dx=shipX-boss.x,dy=sy-boss.y,mag=Math.sqrt(dx*dx+dy*dy)||1;
             const spd=3.2+Math.min(sector,7)*0.3;
-            if(bIdx===0){for(let i=-2;i<=2;i++)enemyBullets.push({x:boss.x+i*9,y:boss.y+boss.size*0.6,vx:dx/mag*spd*0.65+i*0.55,vy:dy/mag*spd,col:boss.col,boss:true});}
-            else if(bIdx===1){for(let i=-1;i<=1;i++)enemyBullets.push({x:boss.x,y:boss.y+boss.size*0.6,vx:dx/mag*spd+i*0.4,vy:dy/mag*spd,col:boss.col,boss:true});}
-            else{for(let i=0;i<8;i++){const a=i/8*Math.PI*2;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*spd*0.9,vy:Math.sin(a)*spd*0.88+0.5,col:boss.col,boss:true});}}
+            // Hostile fire is always red-family so it never reads as friendly
+            if(bIdx===0){for(let i=-2;i<=2;i++)enemyBullets.push({x:boss.x+i*9,y:boss.y+boss.size*0.6,vx:dx/mag*spd*0.65+i*0.55,vy:dy/mag*spd,col:'#ff5566',boss:true});}
+            else if(bIdx===1){for(let i=-1;i<=1;i++)enemyBullets.push({x:boss.x,y:boss.y+boss.size*0.6,vx:dx/mag*spd+i*0.4,vy:dy/mag*spd,col:'#ff5566',boss:true});}
+            else{for(let i=0;i<8;i++){const a=i/8*Math.PI*2;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*spd*0.9,vy:Math.sin(a)*spd*0.88+0.5,col:'#ff5566',boss:true});}}
             gameChirp(280+Math.random()*160,0.07,0.14);hapticPattern([25]);
           }
         }
@@ -2670,9 +2725,9 @@ function startGame(arcade=false) {
     ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6;
     ctx.fillRect(0,0,W*prog,6);ctx.shadowBlur=0;
 
-    // Boss HP bar
+    // Boss HP bar — sits below the HUD text rows so nothing overlaps
     if(arcade&&boss&&boss.phase>=1){
-      const bw=W*0.60,bx=(W-bw)/2,by=10;
+      const bw=W*0.60,bx=(W-bw)/2,by=Math.round(H*0.062)+Math.max(11,Math.round(H*0.038))+10;
       const hPct=boss.hp/boss.maxHp;
       const hCol=hPct>0.5?boss.col:hPct>0.25?'#ffcc00':'#ff4444';
       ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(bx-2,by-2,bw+4,14);

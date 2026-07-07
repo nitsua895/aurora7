@@ -115,6 +115,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   50%{text-shadow:0 0 12px rgba(201,139,255,.5),1.5px 0 rgba(255,60,90,.30),-1.5px 0 rgba(80,200,255,.30)}
 }
 .line.ascii{color:var(--g);font-size:9px;line-height:1.2;opacity:.9}
+.line.ascii.rover{color:var(--cyan);text-shadow:0 0 8px rgba(111,233,255,.4)}
 .line.chapter{color:var(--cyan);letter-spacing:3px;font-size:10px;text-transform:uppercase;border-top:1px solid #1f4a30;padding-top:8px;margin-top:6px;text-shadow:0 0 8px rgba(111,233,255,.4);position:relative;overflow:hidden}
 .line.chapter::after{
   content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
@@ -355,6 +356,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       <div id="devState" style="color:var(--gdim);font-size:9px"></div>
       <div style="color:var(--gdim);font-size:9px;margin-top:2px">JUMP TO STAGE:</div>
       <div class="dev-row">
+        <button class="dev-btn" onclick="devJump(0)">0 — ROVER</button>
         <button class="dev-btn" onclick="devJump(1)">1 — S7</button>
         <button class="dev-btn" onclick="devJump(2)">2 — DEPOT</button>
         <button class="dev-btn" onclick="devJump(3)">3 — OUTPOST</button>
@@ -429,7 +431,8 @@ const GAME_MUSIC_B64="UklGRsxDRABXQVZFZm10IBAAAAABAAIARKwAABCxAgAEABAAZGF0YahDRA
 // ═══════════════════════════════════════
 // GATE CODES
 // ═══════════════════════════════════════
-const CODES = { S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', CONTINUES:'RETRY', ISLAND:'ISLAND' };
+const CODES = { ROVER:'ROVER', S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', SHELTER:'CLEARANCE', CONTINUES:'RETRY', PARK:'WONDERLAND', ISLAND:'ISLAND' };
+const BIKE_SEQ = 'URUDLR'; // ground rover unlock — up right up down left right, typed as compact letters
 const FINAL = `40°03'03"N  105°17'13"W`; // Wonderland Lake island tree
 const CACHE = `40°03'37"N  105°17'49"W`; // foothills ammo box — 40°03'36.51"N 105°17'49.30"W
 const SAVE = 'aria_aurora_v5';
@@ -439,12 +442,13 @@ const DEV_MODE = new URLSearchParams(location.search).has('dev');
 // ON-SITE HELP — triggered when Trevor says he's lost
 // ═══════════════════════════════════════
 const HELP_HINTS = {
+  0: "Your ground rover is close by — find it and scan the tag on it. Once it reads, you will be asked for a four-direction sequence. Four arrows, six inputs. Type it as letters: U R U D L R.",
   1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces.",
-  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the western edge of the meadow where the trees start. When your screen is clear, type FLY. That is the only instruction.",
-  6: "Walk the path around Wonderland Lake. There is a small island — a peninsula with a cluster of trees at the water's edge. That is the waypoint. Get close and scan the tag on the tree. The final coordinates will come from there.",
-  7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation. CINDER left it with a clear view of the sky. When you have the suit, put it on. Then tell me.",
+  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the shelter at the west side of the meadow and scan the tag there first — that is what opens the window. Once it reads, type FLY.",
+  6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there, along with what you need to open the lock at the cache.",
+  7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation, secured with a physical lock. The code for it is not something I can send you — it was left at the island tree. When you have the suit, put it on. Then tell me.",
 };
 function isHelpPhrase(val) {
   return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT"].some(t=>val.includes(t));
@@ -465,7 +469,7 @@ const LOCK_CODE = 'CINDER'; // matches dossier: "look at who sent this"
       const io = document.getElementById('introOverlay');
       if (io) io.remove();
       // Defer until after all let/const declarations are initialized
-      setTimeout(boot, 0);
+      setTimeout(()=>{ boot(); startNfcListener(); }, 0);
     }
     return;
   }
@@ -481,6 +485,7 @@ function tryUnlock() {
   const val = inp.value.trim().toUpperCase();
   if (val === LOCK_CODE) {
     localStorage.setItem('aria_auth','1');
+    startNfcListener(); // no-op on unsupported browsers/platforms
     const ls = document.getElementById('lockScreen');
     ls.classList.add('hidden');
     setTimeout(()=>ls.remove(), 900);
@@ -509,8 +514,11 @@ function toggleDev() {
 }
 function devJump(s) {
   stage = s;
-  const sigMap = {1:71,2:63,3:50,4:36,6:18,7:12};
-  sigPct = sigMap[s] || 71;
+  bikeRevealed = s>=1; bikeCleared = s>=1;
+  shelterCleared = s>=5;
+  parkCleared = s>=7;
+  const sigMap = {0:71,1:71,2:63,3:50,4:36,6:18,7:12};
+  sigPct = sigMap[s] ?? 71;
   setSig(sigPct);
   if (STAGE_WAYPOINT[s]) setWaypoint(STAGE_WAYPOINT[s]); else setWaypoint(null);
   busy = false;
@@ -521,11 +529,14 @@ function devJump(s) {
   toggleDev();
 }
 function devSolve() {
+  toggleDev();
+  const inp = document.getElementById('inp');
+  if (stage===0) { inp.value = bikeRevealed ? BIKE_SEQ : CODES.ROVER; submit(); return; }
+  if (stage===4 && !shelterCleared) { inp.value = CODES.SHELTER; submit(); return; }
+  if (stage===6 && !parkCleared) { inp.value = CODES.PARK; submit(); return; }
   const solvers = {1:'AURORA7',2:'RESUPPLY',3:'PEICLIFF',4:'FLY',6:'ISLAND',7:'WEARING'};
   const v = solvers[stage];
-  toggleDev();
   if (!v) { addLine('> DEV: no solver for stage '+stage,'sys'); return; }
-  const inp = document.getElementById('inp');
   inp.value = v;
   submit();
 }
@@ -608,6 +619,14 @@ lake:`  ≋ ≋ ≋ ≋ ≋ ≋ ≋ ≋
  ≋   WONDERLAND   ≋
 ≋      L A K E     ≋
  ≋ ≋ ≋ ≋ ≋ ≋ ≋ ≋`,
+bike:` ┌─────────────┐
+ │  ◈ ROVER ◈   │
+ │ ═══════════  │
+ │   GROUND     │
+ │   UNIT — 07  │
+ └──────┬───────┘
+    o══════════o
+   ( )        ( )`,
 };
 
 // ═══════════════════════════════════════
@@ -621,7 +640,24 @@ boot:[
   {t:"Signal at seventy-one percent. I have been at this frequency for three years. I will explain what I can before I lose the ability to.",sp:true},
   {t:"There is a suit. A thermal recovery suit cached by the last crew member who came back for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
   {t:"The suit contains something I cannot transmit. Something that has to be heard in person. I have been waiting for someone willing to go get it.",sp:true},
+  {t:"Your ground rover is close. CINDER staged it before he went dark — said a scavenger hunt needs a vehicle, not just a walk. Make contact with it before you move.",sp:true},
+],
+rover_reveal:[
+  {t:"Ground rover confirmed. CINDER did not want NOVA-7 covering this much ground on foot.",sp:true},
+  {t:"It is locked. Four directions, six inputs — a sequence he chose because he thought you would remember it without writing it down.",sp:true},
+  {t:"Enter the sequence.",sp:true},
+],
+rover_confirm:[
+  {t:"Unlocked. Ride safe — CINDER's word, not mine. I do not fully know what that means in this context.",sp:true},
   {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
+],
+rover_free_pre:[
+  "Scan the tag on the rover. That is the only way through this one.",
+  "Find the ground unit first. Everything else waits.",
+],
+rover_free_post:[
+  "Four directions, six inputs. Take your time.",
+  "It will not move until the sequence is right.",
 ],
 s7_free:[
   "Scott Carpenter. Born here. Grew up looking at those mountains. Decided the sky was not far enough.",
@@ -696,9 +732,19 @@ cinder_log:[
 ],
 win_post:[
   {t:"Alpine Modern is on your route. Stop. CINDER stopped there the morning he made the climb. You will need the warmth.",sp:true},
-  {t:"Then Wonderland Lake. CINDER walked that trail the night before he placed the cache. He said it was the last open sky before the foothills closed in.",sp:true},
+  {t:"Then Wonderland Lake Park. CINDER walked that trail the night before he placed the cache. He said it was the last open sky before the foothills closed in.",sp:true},
+  {t:"Scan when you arrive. I want confirmation before I say anything else.",sp:true},
+],
+park_confirm:[
+  {t:"Location confirmed. Eighteen percent.",sp:true},
   {t:"There is a small island — a peninsula with a cluster of trees at the water. The final coordinate is locked to a tag on that tree. You need to be standing at it for it to release.",sp:true},
   {t:"I am almost gone. Move.",sp:true},
+],
+island_lock:[
+  {t:"Before the coordinates — one more thing CINDER left here.",sp:true},
+  {t:"There is a lock on the supply pod at the cache site. He built it from a piece of the Vanguard's hull, recovered from the debris field in these foothills. Four digits. No signal, no channel, nothing I can read for you.",sp:true},
+  {t:"He did not trust this one to a frequency. Not after what happened to the last thing he tried to protect that way.",sp:true},
+  {t:"The code is on what he left you. Find it, and find the lock.",sp:true},
 ],
 lose:[
   {t:"Reentry window closed. Signal lost on the descent. IHI-7 is gone.",sp:true},
@@ -710,9 +756,15 @@ recovery_pre:[
   {t:"NOVA-7. You found it.",sp:true},
 ],
 final_log:[
+  {t:"Day three of boundary observation.",sp:false,gl:true},
+  {t:"Reyes: instruments are reading structure. Repeating. That is not noise.",sp:false,gl:true},
+  {t:"Okafor: it is not coming from beyond the boundary. There is no beyond the boundary. It is coming from the boundary itself.",sp:false,gl:true},
+  {t:"Reyes: then it is a perceptual artifact. Sensor feedback. Call it and move on.",sp:false,gl:true},
+  {t:"Okafor: seventy-two hours of feedback does not resolve into structure this clean. This is not noise reading as a pattern. This is a pattern.",sp:false,gl:true},
   {t:"...it was not a message. It was a seam. Reyes — it does not extend past the boundary. There is nothing on the other side to extend into.",sp:false,gl:true},
   {t:"...[unknown]. Okafor confirms. Resolution drops at the edge. Not darkness. Absence. As if nothing past it was ever finished, because nothing was ever there to look.",sp:false,gl:true},
   {t:"...this is not the edge of what we can reach. It is the edge of what exists. The ship. The crew. The sky over Boulder. All of it real. All of it the part that got built.",sp:false,gl:true},
+  {t:"CINDER: it does not matter what it is. It matters what you choose to do next.",sp:false,gl:true},
   {t:"CINDER, on record: I am not staying because I am afraid of what is out there. I am staying because of what it means about what is in here. Somebody finished this with us in mind. That is not nothing.",sp:false,gl:true},
 ],
 recovery_post:[
@@ -730,14 +782,21 @@ epilogue_close:[
   {t:"A copy of everything is saved to your device, and a debrief is sitting in a draft email whenever you want to send it to yourself.",sp:true},
   {t:"Goodbye, NOVA-7. Thank you for finishing what he started.",sp:true},
 ],
-free4:[
+free4_pre:[
+  "Find the shelter at the west side of the meadow. Scan the tag there first.",
+  "Thirty-six percent. I need a physical anchor before I open that window. The shelter has one.",
+  "Chautauqua has stood since 1898. CINDER liked that it outlasted everything he understood about technology.",
+],
+free4_post:[
   "Find shade at the western tree line. Type FLY.",
   "Thirty-six percent. The approach will not wait. Type FLY when you are ready.",
   "The meadow. Tree line. You need to see the screen clearly. Then FLY.",
-  "Chautauqua has stood since 1898. CINDER liked that it outlasted everything he understood about technology.",
 ],
-free6:[
-  "Wonderland Lake. Walk the path. Find the island — the trees at the water's edge. Scan the tag. Eighteen percent.",
+free6_pre:[
+  "Wonderland Lake Park. Scan the tag when you arrive. Eighteen percent.",
+  "I want confirmation you are there before I release anything else.",
+],
+free6_post:[
   "The island tree. CINDER marked it because it is the last quiet place before the climb. Find it.",
   "Walk the lake path counterclockwise. You will see the peninsula. The tag is on the tree facing the water.",
   "Scan the island tree. The final coordinate is locked there. I cannot give it to you another way.",
@@ -747,6 +806,7 @@ free7:[
   "Twelve percent. CINDER spent three days getting that suit up to elevation. The least you can do is go get it.",
   "The GPS coordinates are on your screen. Use them. The cache is at that elevation. It is not far now.",
   "Into the hills. You are almost at the end of something. Keep moving.",
+  "The lock will only open for what CINDER left you at the tree. I cannot help with that part. Some things have to stay off the channel.",
 ],
 };
 
@@ -759,6 +819,8 @@ let busy = false;
 let audioUnlocked = false;
 let freeIdx = {};
 let awaitingReflection = false;
+// Sub-gates within stage 0 (ground rover) and stage 4/6 (physical NFC anchors)
+let bikeRevealed = false, bikeCleared = false, shelterCleared = false, parkCleared = false;
 
 function getFree(pool, key) {
   freeIdx[key] = ((freeIdx[key]||0)+1) % pool.length;
@@ -773,7 +835,7 @@ function saveState(extra={}) {
     const feedLines = Array.from(feed.children)
       .slice(-200)
       .map(d=>({t:d.textContent, c:d.className.replace(/^line\s*/,'').trim()}));
-    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, ...extra}));
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, ...extra}));
   } catch(e){}
 }
 function loadState() {
@@ -1133,16 +1195,22 @@ function showNfcScanAnimation(cipher, onComplete) {
 // ═══════════════════════════════════════
 // WAYPOINT / MAPS LINK
 // ═══════════════════════════════════════
+// query values use precise decimal coordinates where we have them (most
+// reliable pin-drop in Google Maps); text search only where no exact
+// coordinate has been supplied yet — see NOTE below.
 const WAYPOINTS = {
-  s7:       {label:'SECTOR 7 — SCOTT CARPENTER PARK', query:'Scott Carpenter Park, 1505 30th St, Boulder, CO'},
+  s7:       {label:'SECTOR 7 — SCOTT CARPENTER PARK', query:'40.012036,-105.255314'},
   depot:    {label:'RESUPPLY — NEPTUNE CAFÉ', query:'Neptune Cafe, Boulder, CO'},
   outpost:  {label:'THE OUTPOST — NCAR MESA LAB', query:'NCAR Mesa Lab, 1850 Table Mesa Dr, Boulder, CO'},
-  field:    {label:'FIELD STATION — CHAUTAUQUA TRAILHEAD', query:'Chautauqua Park, 900 Baseline Rd, Boulder, CO'},
+  // NOTE: Bluebell Shelter has no precise coordinate yet — using text search
+  // as a placeholder. Swap in decimal coords once you have a pin dropped.
+  field:    {label:'FIELD STATION — CHAUTAUQUA, BLUEBELL SHELTER', query:'Bluebell Shelter, Chautauqua Park, Boulder, CO'},
   alpine:   {label:'RESUPPLY — ALPINE MODERN CAFÉ', query:'Alpine Modern Cafe, Boulder, CO'},
-  lake:     {label:'WAYPOINT-ALPHA — WONDERLAND LAKE ISLAND TREE', query:'Wonderland Lake Trailhead, Boulder, CO'},
-  foothills:{label:'CACHE SITE — FOOTHILLS NORTH, LEE HILL', query:'748 Cottage Ln, Boulder, CO'},
+  park:     {label:'WONDERLAND LAKE PARK', query:'2PX5+CX Boulder, CO'},
+  island:   {label:'WAYPOINT-ALPHA — WONDERLAND LAKE ISLAND TREE', query:'40.050706,-105.287006'},
+  foothills:{label:'CACHE SITE — FOOTHILLS NORTH, LEE HILL', query:'40.060142,-105.297028'},
 };
-const STAGE_WAYPOINT = {1:'s7', 2:'depot', 3:'outpost', 4:'field', 6:'lake', 7:'foothills'};
+const STAGE_WAYPOINT = {1:'s7', 2:'depot', 3:'outpost', 4:'field', 6:'park', 7:'foothills'};
 let currentWaypoint = null;
 
 function setWaypoint(key) {
@@ -1414,11 +1482,21 @@ if (navigator.geolocation) {
 // BOOT
 // ═══════════════════════════════════════
 async function boot() {
+  // Held true for the whole intro typewriter sequence so a physical NFC tap
+  // (URL reload or the live Web NFC listener) can't interrupt it mid-line —
+  // both cipher-scan paths already no-op while busy is true.
+  busy = true;
   const saved = loadState();
-  if (saved && saved.stage > 0) {
+  // stage stays 0 through the ground-rover gate, so also resume on rover
+  // sub-progress alone or a fresh reload would replay the entire intro.
+  if (saved && (saved.stage > 0 || saved.bikeRevealed)) {
     stage = saved.stage;
     sigPct = saved.sigPct || 71;
     freeIdx = saved.freeIdx || {};
+    bikeRevealed = saved.bikeRevealed || false;
+    bikeCleared = saved.bikeCleared || false;
+    shelterCleared = saved.shelterCleared || false;
+    parkCleared = saved.parkCleared || false;
     setSig(sigPct);
     if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
     if (saved.feedLines && saved.feedLines.length) {
@@ -1428,6 +1506,7 @@ async function boot() {
     addLine('> SIGNAL REACQUIRED — CONTINUING SESSION', 'sys');
     await W8(400);
     addLine('> channel live. continue, NOVA-7.', 'sys');
+    busy = false;
     enableInput();
     document.getElementById('resetArea').style.display='flex';
     checkQrUnlock();
@@ -1447,12 +1526,12 @@ async function boot() {
   addLine('// CHAPTER 01 — FIRST CONTACT', 'chapter');
   await W8(700);
   await playSeq(SCRIPT.boot, 'aria', 520);
-  addLine('> GROUND UNIT 7 ACTIVE', 'sys');
-  addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');
-  stage=1;
-  setWaypoint('s7');
+  addLine('> LOCATE YOUR GROUND ROVER', 'sys');
+  addLine('> SCAN ON CONTACT', 'sys');
+  // stage stays 0 — the rover gate is cleared inside submit()
   const lastLine = SCRIPT.boot[SCRIPT.boot.length-1].t;
   saveState({lastLine});
+  busy = false;
   enableInput();
   document.getElementById('resetArea').style.display='flex';
   checkCipherParam();
@@ -1472,6 +1551,7 @@ function beginTransmission() {
   const crt = document.querySelector('.crt-wrap');
   crt.classList.add('power-on');
   setTimeout(()=>crt.classList.remove('power-on'), 1300);
+  startNfcListener(); // no-op on unsupported browsers/platforms
   boot();
 }
 setTimeout(()=>{
@@ -1539,6 +1619,31 @@ function checkQrUnlock() {
   } catch(e){}
 }
 
+// Shared by the on-load URL param path (checkCipherParam) and the live
+// foreground Web NFC listener (startNfcListener) below — one cipher-scan
+// flow, two ways to trigger it.
+function handleCipherScan(cipher) {
+  if (!actx) initBlip();
+  if (stage >= 2) {
+    // Mission already active — show dramatic scan animation
+    showNfcScanAnimation(cipher, ()=>{
+      const inp = document.getElementById('inp');
+      inp.value = cipher.toUpperCase();
+      submit();
+      setTimeout(()=>{ try { document.activeElement?.blur(); } catch(e){} }, 150);
+    });
+  } else {
+    // First scan(s) — simple flow (stage 0: rover, stage 1: rocket)
+    addLine('> NFC TAG READ — CIPHER EXTRACTED', 'sys');
+    blip(720, 0.1); pulse(20);
+    setTimeout(()=>{
+      const inp = document.getElementById('inp');
+      inp.value = cipher.toUpperCase();
+      submit();
+    }, 500);
+  }
+}
+
 function checkCipherParam() {
   try {
     const params = new URLSearchParams(location.search);
@@ -1546,26 +1651,46 @@ function checkCipherParam() {
     if (!cipher || busy) return;
     // Strip param so a page refresh doesn't re-trigger
     history.replaceState(null, '', location.pathname + (location.hash||''));
-    if (!actx) initBlip();
-    if (stage >= 2) {
-      // Mission already active — show dramatic scan animation
-      showNfcScanAnimation(cipher, ()=>{
-        const inp = document.getElementById('inp');
-        inp.value = cipher.toUpperCase();
-        submit();
-        setTimeout(()=>{ try { document.activeElement?.blur(); } catch(e){} }, 150);
-      });
-    } else {
-      // First scan — simple flow
-      addLine('> NFC TAG READ — CIPHER EXTRACTED', 'sys');
-      blip(720, 0.1); pulse(20);
-      setTimeout(()=>{
-        const inp = document.getElementById('inp');
-        inp.value = cipher.toUpperCase();
-        submit();
-      }, 500);
-    }
+    handleCipherScan(cipher);
   } catch(e){}
+}
+
+// ═══════════════════════════════════════
+// WEB NFC — foreground tag reads without a page reload
+// Chrome on Android only (no Safari/iOS, no Firefox). Every physical tag
+// still carries a full URL (the ?cipher=/?mesh= links below) as the
+// universal fallback — this just intercepts the same payload instantly
+// when the tab is already open, instead of letting Android navigate.
+// Silently no-ops everywhere else; the URL-reload flow keeps working.
+// ═══════════════════════════════════════
+let _nfcArmed = false;
+async function startNfcListener() {
+  if (_nfcArmed || !('NDEFReader' in window)) return;
+  try {
+    const reader = new NDEFReader();
+    await reader.scan();
+    _nfcArmed = true;
+    reader.onreading = (event) => {
+      for (const record of event.message.records) {
+        if (record.recordType === 'url' || record.recordType === 'absolute-url') {
+          try {
+            const text = new TextDecoder(record.encoding || 'utf-8').decode(record.data);
+            const url = new URL(text, location.href);
+            const cipher = url.searchParams.get('cipher');
+            if (cipher && !busy) {
+              handleCipherScan(cipher);
+            } else if (url.searchParams.get('mesh')==='sync' && stage===7 && !busy) {
+              addLine('> PASSIVE SIGNAL MESH DETECTED — HANDSHAKE CONFIRMED', 'sys');
+              triggerRecovery();
+            }
+          } catch(e){}
+          return;
+        }
+      }
+    };
+  } catch(e) {
+    // permission denied / unsupported / scan already active elsewhere — ignore
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1652,6 +1777,33 @@ async function submit() {
     return;
   }
 
+  // GROUND ROVER — stage 0, two sub-steps: scan reveals the lock, sequence clears it
+  if (stage===0 && !bikeRevealed && val===CODES.ROVER) {
+    bikeRevealed = true;
+    playUnlockSound(); hapticPattern([50,35,110]);
+    addLine('> NFC TAG READ — GROUND ROVER DETECTED', 'sys');
+    await W8(500);
+    await playSeq(SCRIPT.rover_reveal, 'aria', 360);
+    addLine(ART.bike, 'ascii rover');
+    addLine('> SEQUENCE REQUIRED: ↑ → ↑ ↓ ← →', 'sys');
+    addLine('> TYPE: U R U D L R', 'sys');
+    saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
+    busy=false; enableInput(); return;
+  }
+  if (stage===0 && bikeRevealed && !bikeCleared && val.replace(/\s+/g,'')===BIKE_SEQ) {
+    bikeCleared = true;
+    playUnlockSound(); hapticPattern([50,35,110,35,110]);
+    addLine('> SEQUENCE ACCEPTED — GROUND ROVER UNLOCKED', 'sys');
+    await W8(500);
+    await playSeq(SCRIPT.rover_confirm, 'aria', 360);
+    addLine('> GROUND UNIT 7 ACTIVE', 'sys');
+    addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');
+    stage=1;
+    setWaypoint('s7');
+    saveState({lastLine:SCRIPT.rover_confirm[SCRIPT.rover_confirm.length-1].t});
+    busy=false; enableInput(); return;
+  }
+
   // SECTOR 7
   if (stage===1 && val===CODES.S7) {
     setSig(63);
@@ -1697,7 +1849,7 @@ async function submit() {
     await W8(600);
     await playSeq(SCRIPT.outpost_log, 'aria', 380);
     await playSeq(SCRIPT.outpost_post, 'aria', 360);
-    addLine('> TYPE FLY TO BEGIN REENTRY APPROACH', 'sys');
+    addLine('> SCAN AT THE SHELTER TO OPEN THE REENTRY WINDOW', 'sys');
     stage=4;
     setWaypoint('field');
     const lastLine=SCRIPT.outpost_post[SCRIPT.outpost_post.length-1].t;
@@ -1705,8 +1857,23 @@ async function submit() {
     busy=false; enableInput(); return;
   }
 
+  // SHELTER — Chautauqua / Bluebell Shelter NFC anchor, unlocks FLY
+  if (stage===4 && !shelterCleared && val===CODES.SHELTER) {
+    shelterCleared = true;
+    playUnlockSound(); hapticPattern([50,35,110]);
+    addLine('> NFC TAG READ — PHYSICAL ANCHOR CONFIRMED', 'sys');
+    await W8(400);
+    await typeLine('Clearance granted. The window is yours whenever you are ready. Type FLY.', 'aria', true, false);
+    saveState({lastLine:'shelter anchor confirmed'});
+    busy=false; enableInput(); return;
+  }
+
   // FLY
   if (stage===4 && val==='FLY') {
+    if (!shelterCleared) {
+      await typeLine('Not yet. Scan at the shelter first — I need a physical anchor before I open that window.', 'aria', true, false);
+      busy=false; enableInput(); return;
+    }
     addLine('// CHAPTER 05 — FIELD APPROACH', 'chapter');
     setSig(22);
     await playSeq(SCRIPT.fly_pre, 'aria', 340);
@@ -1724,13 +1891,36 @@ async function submit() {
     busy=false; enableInput(); return;
   }
 
-  // ISLAND TREE — stage 6 → 7
+  // WONDERLAND LAKE PARK — first of two lake beats
+  if (stage===6 && !parkCleared && val===CODES.PARK) {
+    parkCleared = true;
+    setSig(18);
+    playUnlockSound(); hapticPattern([50,35,110]);
+    addLine('> NFC TAG READ — LOCATION CONFIRMED', 'sys');
+    await W8(500);
+    await playSeq(SCRIPT.park_confirm, 'aria', 360);
+    addLine(ART.lake, 'ascii');
+    await typeLine('WAYPOINT-ALPHA: '+FINAL, 'hilite', true, false);
+    addLine('> WAYPOINT: WONDERLAND LAKE — ISLAND TREE', 'sys');
+    addLine('> SCAN THE TAG AT THE TREE TO RELEASE THE CACHE COORDINATES.', 'sys');
+    setWaypoint('island');
+    saveState({lastLine:SCRIPT.park_confirm[SCRIPT.park_confirm.length-1].t});
+    busy=false; enableInput(); return;
+  }
+
+  // ISLAND TREE — stage 6 → 7 (requires the park scan first)
   if (stage===6 && val===CODES.ISLAND) {
+    if (!parkCleared) {
+      await typeLine('Confirm the park first. Scan there before the tree.', 'aria', true, false);
+      busy=false; enableInput(); return;
+    }
     setSig(12);
     playUnlockSound(); hapticPattern([50,35,110]);
     addLine('// CHAPTER 06b — FINAL APPROACH', 'chapter');
     addLine('> NFC TAG READ — WAYPOINT CONFIRMED', 'sys');
     await W8(600);
+    await playSeq(SCRIPT.island_lock, 'aria', 360);
+    await W8(400);
     await typeLine('CACHE-ACTUAL:   '+CACHE, 'hilite', true, false);
     await W8(500);
     await typeLine('Follow Lee Hill Drive west. The coordinates are precise. I will hold signal as long as I can.', 'aria', true, false);
@@ -1758,11 +1948,12 @@ async function submit() {
 
   // FREE TEXT
   let resp='';
-  if (stage===1) resp=getFree(SCRIPT.s7_free,'s7');
+  if (stage===0) resp = bikeRevealed ? getFree(SCRIPT.rover_free_post,'roverpost') : getFree(SCRIPT.rover_free_pre,'roverpre');
+  else if (stage===1) resp=getFree(SCRIPT.s7_free,'s7');
   else if (stage===2) resp=getFree(SCRIPT.depot_free,'depot');
   else if (stage===3) resp=getFree(SCRIPT.outpost_free,'outpost');
-  else if (stage===4) resp=getFree(SCRIPT.free4,'f4');
-  else if (stage===6) resp=getFree(SCRIPT.free6,'f6');
+  else if (stage===4) resp = shelterCleared ? getFree(SCRIPT.free4_post,'f4post') : getFree(SCRIPT.free4_pre,'f4pre');
+  else if (stage===6) resp = parkCleared ? getFree(SCRIPT.free6_post,'f6post') : getFree(SCRIPT.free6_pre,'f6pre');
   else if (stage===7) resp=getFree(SCRIPT.free7,'f7');
   else if (stage>=8) {
     const stripped = val.replace(/[^A-Z]/g,'');
@@ -2171,7 +2362,6 @@ function startGame(arcade=false) {
     }
 
     if(won){
-      setSig(18);
       playNfcScanTone(); hapticPattern([20,55,20,55,20,55,20,90,200]);
       addLine('// CHAPTER 06 — APPROACH COMPLETE','chapter');
       await W8(400);
@@ -2179,14 +2369,11 @@ function startGame(arcade=false) {
       await W8(300);
       await playCinderLog(SCRIPT.cinder_log);
       await W8(400);
-      await typeLine('WAYPOINT-ALPHA: '+FINAL,'hilite',true,false);
-      await W8(400);
       await playSeq(SCRIPT.win_post,'aria',360);
-      addLine(ART.lake,'ascii');
-      addLine('> WAYPOINT: WONDERLAND LAKE — ISLAND TREE','sys');
-      addLine('> SCAN THE TAG AT THE TREE TO RELEASE THE CACHE COORDINATES.','sys');
+      addLine('> WAYPOINT: WONDERLAND LAKE PARK','sys');
+      addLine('> SCAN ON ARRIVAL TO CONTINUE.','sys');
       addLine('> SIM AVAILABLE — TYPE "ARCADE" TO FLY THE APPROACH AGAIN','sys');
-      stage=6; setWaypoint('lake');
+      stage=6; setWaypoint('park');
       saveState({lastLine:SCRIPT.win_post[SCRIPT.win_post.length-1].t}); enableInput();
     } else {
       playLoseSound(); hapticPattern([60,30,60,30,80]);

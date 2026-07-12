@@ -433,6 +433,15 @@ const GAME_MUSIC_B64="UklGRsxDRABXQVZFZm10IBAAAAABAAIARKwAABCxAgAEABAAZGF0YahDRA
 // ═══════════════════════════════════════
 const CODES = { ROVER:'ROVER', S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', SHELTER:'CLEARANCE', CONTINUES:'RETRY', PARK:'WONDERLAND', ISLAND:'ISLAND' };
 const BIKE_SEQ = 'URUDLR'; // ground rover unlock — up right up down left right, typed as compact letters
+// Which stage each real-world code/cipher belongs to — lets a scanned tag
+// that doesn't apply right now get an honest "ahead of you" / "already
+// read" response instead of falling through to unrelated flavor text.
+const CODE_STAGE = {
+  [CODES.ROVER]: 0, [BIKE_SEQ]: 0,
+  [CODES.S7]: 1, [CODES.DEPOT]: 2, [CODES.OUTPOST]: 3,
+  [CODES.SHELTER]: 4, [CODES.CONTINUES]: 4,
+  [CODES.PARK]: 6, [CODES.ISLAND]: 6,
+};
 const FINAL = `40°03'03"N  105°17'13"W`; // Wonderland Lake island tree
 const CACHE = `40°03'37"N  105°17'49"W`; // foothills ammo box — 40°03'36.51"N 105°17'49.30"W
 const SAVE = 'aria_aurora_v5';
@@ -1172,11 +1181,13 @@ function showNfcScanAnimation(cipher, onComplete) {
     setTimeout(() => {
       confirmed = true;
       overlay.classList.add('confirmed');
-      label.textContent = 'CIPHER VERIFIED';
+      // Neutral — this only confirms the tag was read, not that it was the
+      // right one for right now. Whether it's accepted, too early, or
+      // already used is ARIA's call, made in submit() right after this closes.
+      label.textContent = 'TAG READ';
       sub.textContent   = cipher.toUpperCase();
       hapticPattern([60, 35, 120]);
       playNfcConfirmTone();
-      speakText('Cipher confirmed. Continuing mission.', false, false);
       setTimeout(() => {
         overlay.classList.remove('active');
         setTimeout(() => {
@@ -1942,6 +1953,24 @@ async function submit() {
   // ON-SITE HELP
   if (HELP_HINTS[stage] && isHelpPhrase(val)) {
     await typeLine(HELP_HINTS[stage], 'aria', true, false);
+    saveState({});
+    busy=false; enableInput(); return;
+  }
+
+  // MISTIMED CODE — a real cipher/tag that just doesn't apply right now.
+  // None of the handlers above matched, so if this string IS a known code,
+  // say so plainly instead of letting it fall into unrelated flavor text.
+  if (CODE_STAGE[val] !== undefined) {
+    const codeStage = CODE_STAGE[val];
+    let msg;
+    if (codeStage > stage) {
+      msg = 'Not accepted. That tag is ahead of where you are right now.';
+    } else if (codeStage < stage) {
+      msg = 'Not accepted. That checkpoint is already behind you.';
+    } else {
+      msg = 'Not accepted yet. There is something else here first.';
+    }
+    await typeLine(msg, 'aria', true, false);
     saveState({});
     busy=false; enableInput(); return;
   }

@@ -62,23 +62,38 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 }
 @keyframes rollBar{0%{transform:translateY(0)}100%{transform:translateY(920px)}}
 
-/* Signal-decay glitch burst — red/cyan channel split + a screen-wide jump.
+/* Signal-decay glitch burst — red/cyan channel split, smooth fade in and
+   out (no stepping — that read as twitchy rather than a failing signal).
    Deliberately NOT purple: purple means "archival recording" everywhere
    else in this UI. This means "the live transmission itself is failing." */
 .crt-glitch-r,.crt-glitch-b{
   position:absolute;inset:0;z-index:23;pointer-events:none;border-radius:16px;
   mix-blend-mode:screen;opacity:0;
 }
-.crt-glitch-r{background:rgba(255,40,70,.72)}
-.crt-glitch-b{background:rgba(40,195,255,.72)}
-.crt-wrap.glitch-burst .crt-glitch-r{animation:glitchR .3s steps(2) 1}
-.crt-wrap.glitch-burst .crt-glitch-b{animation:glitchB .3s steps(2) 1}
-@keyframes glitchR{0%{opacity:0;transform:translateX(0)}22%{opacity:.65;transform:translateX(5px)}50%{opacity:.4;transform:translateX(-4px)}75%{opacity:.22;transform:translateX(3px)}100%{opacity:0;transform:translateX(0)}}
-@keyframes glitchB{0%{opacity:0;transform:translateX(0)}22%{opacity:.65;transform:translateX(-5px)}50%{opacity:.4;transform:translateX(4px)}75%{opacity:.22;transform:translateX(-3px)}100%{opacity:0;transform:translateX(0)}}
-.crt-wrap.glitch-burst .screen{animation:flicker 11s infinite,screenJump .3s steps(4) 1}
-@keyframes screenJump{0%{transform:translateX(0)}20%{transform:translateX(-3px) skewX(.4deg)}45%{transform:translateX(3px) skewX(-.3deg)}70%{transform:translateX(-2px)}90%{transform:translateX(1px)}100%{transform:translateX(0)}}
+.crt-glitch-r{background:rgba(255,40,70,.6)}
+.crt-glitch-b{background:rgba(40,195,255,.6)}
+.crt-wrap.glitch-burst .crt-glitch-r{animation:glitchFadeR .55s ease-in-out 1}
+.crt-wrap.glitch-burst .crt-glitch-b{animation:glitchFadeB .55s ease-in-out 1}
+@keyframes glitchFadeR{0%{opacity:0;transform:translateX(0)}45%{opacity:.55;transform:translateX(2px)}100%{opacity:0;transform:translateX(0)}}
+@keyframes glitchFadeB{0%{opacity:0;transform:translateX(0)}45%{opacity:.55;transform:translateX(-2px)}100%{opacity:0;transform:translateX(0)}}
+.crt-wrap.glitch-burst .screen{animation:flicker 11s infinite,screenSway .55s ease-in-out 1}
+@keyframes screenSway{0%{transform:translateX(0)}50%{transform:translateX(1.5px)}100%{transform:translateX(0)}}
+
+/* Text-level corruption on 1-3 random visible lines during a burst — a
+   scanline dropout (clip-path slicing out a band, reads as "missing"),
+   a fade dip, and a small left/right shift. Runs alongside the screen
+   wash above rather than replacing it. */
+.line.line-glitch{ animation: lineGlitch .42s ease-in-out 1; }
+@keyframes lineGlitch{
+  0%{transform:translateX(0);opacity:1;clip-path:inset(0 0 0 0)}
+  20%{transform:translateX(-3px);opacity:.4;clip-path:inset(15% 0 42% 0)}
+  40%{transform:translateX(2px);opacity:.88;clip-path:inset(0 0 58% 0)}
+  62%{transform:translateX(-2px);opacity:.35;clip-path:inset(50% 0 6% 0)}
+  82%{transform:translateX(1px);opacity:.92;clip-path:inset(0 0 0 0)}
+  100%{transform:translateX(0);opacity:1;clip-path:inset(0 0 0 0)}
+}
 @media (prefers-reduced-motion:reduce){
-  .crt-wrap.glitch-burst .crt-glitch-r,.crt-wrap.glitch-burst .crt-glitch-b,.crt-wrap.glitch-burst .screen{animation:none}
+  .crt-wrap.glitch-burst .crt-glitch-r,.crt-wrap.glitch-burst .crt-glitch-b,.crt-wrap.glitch-burst .screen,.line.line-glitch{animation:none}
 }
 
 .screen{position:relative;z-index:10;height:100%;display:flex;flex-direction:column;padding:11px 13px 8px;animation:flicker 11s infinite}
@@ -925,7 +940,21 @@ function scheduleGlitchBurst() {
 function fireGlitchBurst(crt) {
   crt.classList.remove('glitch-burst'); void crt.offsetWidth;
   crt.classList.add('glitch-burst');
-  setTimeout(()=>crt.classList.remove('glitch-burst'), 340);
+  setTimeout(()=>crt.classList.remove('glitch-burst'), 580);
+  glitchRandomLines(sigPct < 15 ? 3 : 2);
+}
+// Corrupts a couple of currently-visible feed lines in step with the
+// screen-wide burst — scanline dropout, fade, and a left/right shift.
+function glitchRandomLines(n=2) {
+  const lines = feed.querySelectorAll('.line');
+  if (!lines.length) return;
+  const arr = Array.from(lines);
+  for (let i=0; i<n; i++) {
+    const el = arr[Math.floor(Math.random()*arr.length)];
+    el.classList.remove('line-glitch'); void el.offsetWidth;
+    el.classList.add('line-glitch');
+    setTimeout(()=>el.classList.remove('line-glitch'), 460);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1067,7 +1096,7 @@ function ambientBeep() {
     o.start(now); o.stop(now + dur + 0.05);
   } catch(e){}
 }
-function playStatic(ms=250) {
+function playStatic(ms=250, vol=0.28) {
   if (!actx) return;
   try {
     const dur=ms/1000;
@@ -1077,7 +1106,7 @@ function playStatic(ms=250) {
     const src=actx.createBufferSource(); src.buffer=buf;
     const filt=actx.createBiquadFilter();
     filt.type='bandpass'; filt.frequency.value=950; filt.Q.value=0.7;
-    const g=actx.createGain(); g.gain.value=0.28;
+    const g=actx.createGain(); g.gain.value=vol;
     src.connect(filt); filt.connect(g); g.connect(actx.destination);
     src.start(); src.stop(actx.currentTime+dur);
   } catch(e){}
@@ -1116,9 +1145,11 @@ function updateDrone() {
 function scheduleDroneStatic() {
   clearTimeout(_droneNoiseTimer);
   if (!_droneArmed || sigPct >= 30) return; // clean carrier at healthy signal
-  const delay = sigPct >= 15 ? 9000+Math.random()*7000 : 4000+Math.random()*3000;
+  // Quieter and rarer than before — this is ambient texture, not a cue that
+  // should compete for attention against ARIA's actual dialogue.
+  const delay = sigPct >= 15 ? 16000+Math.random()*12000 : 8000+Math.random()*6000;
   _droneNoiseTimer = setTimeout(() => {
-    playStatic(sigPct < 15 ? 260 : 150);
+    playStatic(sigPct < 15 ? 200 : 130, 0.09);
     scheduleDroneStatic();
   }, delay);
 }
@@ -1407,9 +1438,9 @@ let _devVoiceOverride = null;
 // fixed character regardless of live signal.
 function voiceParamsForSig() {
   if (sigPct >= 50) return {rateAdj:0,    pitchAdj:0,    pauseMs:0,   pauseChance:0};
-  if (sigPct >= 30) return {rateAdj:-0.05, pitchAdj:-0.02, pauseMs:180, pauseChance:0.06};
-  if (sigPct >= 15) return {rateAdj:-0.10, pitchAdj:-0.05, pauseMs:320, pauseChance:0.14};
-  return                   {rateAdj:-0.16, pitchAdj:-0.08, pauseMs:480, pauseChance:0.22};
+  if (sigPct >= 30) return {rateAdj:-0.03, pitchAdj:-0.01, pauseMs:140, pauseChance:0.03};
+  if (sigPct >= 15) return {rateAdj:-0.06, pitchAdj:-0.03, pauseMs:220, pauseChance:0.06};
+  return                   {rateAdj:-0.09, pitchAdj:-0.05, pauseMs:300, pauseChance:0.10};
 }
 
 // Prefer a short allowlist of voices known to sound good and load reliably
@@ -1531,11 +1562,13 @@ function addLine(text, cls='') {
 // Typing labors as signal fails — crisp at full power, halting and
 // occasionally stuttering near the end. Recordings (glitch=true) keep their
 // own fixed corrupted-data rhythm regardless of live signal strength.
+// Centered on the original fixed pace (48/27) rather than stretching both
+// ends further out — degrades noticeably without ever reading as "broken."
 function typeSpeedForSig() {
-  if (sigPct >= 50) return {base:38, rnd:22, stutter:0};
-  if (sigPct >= 30) return {base:48, rnd:27, stutter:0.02};
-  if (sigPct >= 15) return {base:62, rnd:34, stutter:0.05};
-  return {base:78, rnd:40, stutter:0.09};
+  if (sigPct >= 50) return {base:44, rnd:24, stutter:0};
+  if (sigPct >= 30) return {base:49, rnd:26, stutter:0.015};
+  if (sigPct >= 15) return {base:55, rnd:28, stutter:0.03};
+  return {base:62, rnd:31, stutter:0.045};
 }
 function typeLine(text, cls='', doSpeak=false, glitch=false) {
   return new Promise(res => {

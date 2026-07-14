@@ -755,7 +755,7 @@ outpost_post:[
   {t:"I know what is in that transmission. I was there. But I cannot say it on this channel. I have no way to confirm this frequency is dark — I cannot rule out that Command is listening. I will not take that risk.",sp:true},
   {t:"CINDER used to call it the Silence. Not the absence of sound. The absence of anything to make sound. I have never found a way to describe it that does not frighten people. I am not going to try tonight.",sp:true},
   {t:"CINDER understood that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
-  {t:"When you find the suit and put it on, I will play it for you, Trevor. NOVA-7. That is the last thing I am able to do.",sp:true},
+  {t:"When you find the suit and put it on, I will play it for you, Trevor. ...NOVA-7. That is the last thing I am able to do.",sp:true},
   {t:"One more thing. There is a relay satellite — IHI-7 — in decaying orbit right now. CINDER left the route to the cache encrypted on it, locked one waypoint at a time. You have one reentry window to pull the first waypoint before it burns up.",sp:true},
   {t:"Get to the western tree line at Chautauqua Meadow. Find shade. Make sure you can see the screen clearly. Then type FLY.",sp:true},
 ],
@@ -791,10 +791,10 @@ island_lock:[
   {t:"Before the coordinates — one more thing CINDER left here.",sp:true},
   {t:"There is a lock on the supply pod at the cache site. He built it from a piece of the Vanguard's hull, recovered from the debris field in these foothills. Four digits. No signal, no channel, nothing I can read for you.",sp:true},
   {t:"He did not trust this one to a frequency. Not after what happened to the last thing he tried to protect that way.",sp:true},
-  {t:"The code is on what he left you. Find it, and find the lock.",sp:true},
+  {t:"The code is here — he left it at this tree. Look around before you leave. You will not get another pass at it once you start the climb.",sp:true},
 ],
 lose:[
-  {t:"Reentry window closed. Signal lost on the descent. IHI-7 is gone.",sp:true},
+  {t:"Reentry window closed. Signal lost on the descent. The route is still up there — but not for long.",sp:true},
   {t:"CINDER built in a failsafe. Your Chautauqua clue sheet has a partial coordinate set. Find it. Enter the code on it.",sp:true},
   {t:"I can still open the window. Type FLY.",sp:true},
 ],
@@ -837,11 +837,11 @@ free4_pre:[
 ],
 free4_post:[
   "Find shade at the western tree line. Type FLY.",
-  "Thirty-six percent. The approach will not wait. Type FLY when you are ready.",
+  "The approach will not wait. Type FLY when you are ready.",
   "The meadow. Tree line. You need to see the screen clearly. Then FLY.",
 ],
 free6_pre:[
-  "Wonderland Lake Park. Scan the tag when you arrive. Eighteen percent.",
+  "Wonderland Lake Park. Scan the tag when you arrive. The signal is thinning.",
   "I want confirmation you are there before I release anything else.",
 ],
 free6_post:[
@@ -1421,13 +1421,33 @@ function splitIntoSpeechChunks(text) {
   return chunks.length ? chunks : [text];
 }
 
-function speakText(text, glitch=false, slow=false) {
-  if (!audioUnlocked || !window.speechSynthesis) return;
+// Speak one line and report back. Returns null when speech is unavailable
+// (muted, unsupported, or nothing speakable), otherwise:
+//   done   — Promise resolving when every chunk of THIS line has finished
+//            (watchdog-guaranteed: resolves even if the engine goes silent)
+//   charMs — the voice's expected pace in ms-per-character, so the
+//            typewriter can pace itself to the audio instead of guessing
+// This is the heart of the text/voice sync: typeLine awaits `done`, so the
+// sequencer can never start line N+1 while line N is still being spoken.
+function speakLine(text, glitch=false, slow=false) {
+  if (!audioUnlocked || !window.speechSynthesis) return null;
   const clean = text.replace(/[█▓▒░_>\[\]\/\\|()≋◈═┌┐└┘│─┬┴●▶]/g,'').replace(/\s+/g,' ').trim();
-  if (!clean || clean==='...') return;
-  splitIntoSpeechChunks(clean).forEach(c => vQ.push({clean:c, glitch, slow}));
+  if (!clean || clean==='...') return null;
+  const chunks = splitIntoSpeechChunks(clean);
+  let resolveDone;
+  const done = new Promise(r => { resolveDone = r; });
+  chunks.forEach((c, i) => vQ.push({clean:c, glitch, slow, onDone: i===chunks.length-1 ? resolveDone : null}));
   if (!vBusy) drainVoice();
+  // Expected speaking pace: ~11 chars/sec at the normal 0.84 rate, scaled
+  // down when the signal-decay rate adjustment slows the voice further.
+  const baseRate = glitch ? 0.55 : slow ? 0.70 : 0.84;
+  const vp = (glitch || slow) ? {rateAdj:0} : voiceParamsForSig();
+  const cps = (glitch ? 7 : slow ? 9 : 11) * ((baseRate + vp.rateAdj) / baseRate);
+  return { done, charMs: 1000 / Math.max(cps, 3) };
 }
+
+// Fire-and-forget wrapper for callers that don't need the sync handle.
+function speakText(text, glitch=false, slow=false) { speakLine(text, glitch, slow); }
 
 let _devVoiceOverride = null;
 
@@ -1474,7 +1494,7 @@ function pickGlitchVoice(vs) {
 function drainVoice() {
   if (!vQ.length) { vBusy=false; return; }
   vBusy=true;
-  const {clean, glitch, slow} = vQ.shift();
+  const {clean, glitch, slow, onDone} = vQ.shift();
   if (glitch) playStatic(120+Math.random()*160);
   const vp = (glitch || slow) ? {rateAdj:0, pitchAdj:0, pauseMs:0, pauseChance:0} : voiceParamsForSig();
   const u = new SpeechSynthesisUtterance(clean);
@@ -1503,6 +1523,9 @@ function drainVoice() {
     advanced = true;
     clearTimeout(watchdog);
     clearInterval(keepAlive);
+    // Line-completion signal for the text/voice sync — must fire on every
+    // path (onend, onerror, watchdog) or typeLine would hang on this line.
+    if (onDone) { try { onDone(); } catch(e){} }
     // Extra pause before the next chunk starts, scaled by signal strength —
     // this is the audible half of the sync with the text-side stutter.
     let extra = 0;
@@ -1570,9 +1593,19 @@ function typeSpeedForSig() {
   if (sigPct >= 15) return {base:55, rnd:28, stutter:0.03};
   return {base:62, rnd:31, stutter:0.045};
 }
-function typeLine(text, cls='', doSpeak=false, glitch=false) {
+function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
   return new Promise(res => {
-    if (doSpeak) speakText(text, glitch);
+    // When this line is spoken, the typewriter paces itself to the voice's
+    // expected chars/sec and the promise resolves only when BOTH the text
+    // and the audio are done. If the voice finishes early the remaining
+    // text fast-forwards; if the voice runs long the cursor holds at the
+    // end of the line until it catches up. Either way, the next line can
+    // never start while this one is still being spoken — that cross-line
+    // drift was the root of the desync.
+    const speech = doSpeak ? speakLine(text, glitch, slow) : null;
+    let speechDone = !speech;
+    if (speech) speech.done.then(()=>{ speechDone = true; });
+
     const d = document.createElement('div');
     d.className = 'line'+(cls?' '+cls:'');
     const cur = document.createElement('span');
@@ -1582,17 +1615,30 @@ function typeLine(text, cls='', doSpeak=false, glitch=false) {
     ledA.classList.add('tx'); // amber LED strobes while the channel is transmitting
     let i=0;
     const ts = typeSpeedForSig();
-    const base = glitch?65:ts.base, rnd=glitch?39:ts.rnd;
+    // Voice-paced typing runs a hair faster than the voice itself (x0.92)
+    // so text leads slightly — reading along feels natural; trailing the
+    // audio feels broken. Silent lines keep the signal-tiered pace.
+    const base = speech ? speech.charMs*0.92 : (glitch?65:ts.base);
+    const rnd  = speech ? speech.charMs*0.25 : (glitch?39:ts.rnd);
     (function step(){
       i++;
       d.textContent = text.slice(0,i);
       d.appendChild(cur);
       feed.scrollTop = feed.scrollHeight;
       if (i<text.length) {
-        let pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
-        if (!glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
+        let pause;
+        if (speech && speechDone) {
+          pause = 9; // voice already finished — sprint the remaining text
+        } else {
+          pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
+          if (!glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
+        }
         setTimeout(step, pause);
-      } else { cur.remove(); ledA.classList.remove('tx'); res(); }
+      } else {
+        const finish = () => { cur.remove(); ledA.classList.remove('tx'); res(); };
+        if (speech && !speechDone) speech.done.then(()=>setTimeout(finish, 90));
+        else finish();
+      }
     })();
   });
 }
@@ -1632,8 +1678,10 @@ async function playCinderLog(items) {
   addLine('> ▶ ARIA TRANSCRIBING — CINDER FIELD RECORD (PARTIAL)', 'sys');
   await W8(700);
   for (const item of items) {
-    speakText(item.t, false, true); // slow mode — ARIA reading with deliberate pace
-    await typeLine(item.t, 'aria', false, false);
+    // slow=true: deliberate reading pace, and the typewriter now paces to
+    // it and waits for it — this used to fire speech separately from the
+    // typing, which was one of the two big drift sources.
+    await typeLine(item.t, 'aria', true, false, true);
     await W8(560);
   }
   addLine('> TRANSCRIPTION COMPLETE — LIVE CHANNEL RESTORED', 'sys');
@@ -2653,6 +2701,9 @@ function startGame(arcade=false) {
     }
 
     if(won){
+      // In-game hits lower the signal live; pin it after the run so the
+      // arc stays deterministic: 22 (fly) → 20 (won) → 18 (park) → 12 → 8.
+      setSig(20);
       playNfcScanTone(); hapticPattern([20,55,20,55,20,55,20,90,200]);
       addLine('// CHAPTER 06 — APPROACH COMPLETE','chapter');
       await W8(400);
@@ -2672,6 +2723,10 @@ function startGame(arcade=false) {
       stage=6; setWaypoint('park');
       saveState({lastLine:SCRIPT.win_post[SCRIPT.win_post.length-1].t}); enableInput();
     } else {
+      // Restore to the pre-approach level: in-game hits may have dragged the
+      // badge as low as 8%, and the retry path replays fly_pre, which says
+      // (and re-sets) twenty-two percent — this keeps that line truthful.
+      setSig(22);
       playLoseSound(); hapticPattern([60,30,60,30,80]);
       await playSeq(SCRIPT.lose,'aria',340);
       stage=4;

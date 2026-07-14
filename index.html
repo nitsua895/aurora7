@@ -1361,34 +1361,107 @@ function easterEgg(key) {
   addLine(line, 'egg');
 }
 
+// Chrome (desktop and Android) has a long-documented bug where a single
+// long SpeechSynthesisUtterance silently stops partway through — most
+// commonly reported around the ~15s mark. Splitting into sentence-sized
+// utterances keeps every individual one well clear of that, and is the
+// standard workaround. It also gives us a natural point to insert the
+// signal-degradation stutter between sentences.
+function splitIntoSpeechChunks(text) {
+  // Only worth the split if the line is actually long enough to risk
+  // Chrome's long-utterance bug. Every chunk pays its own fixed watchdog
+  // overhead in drainVoice() below, so chunking short lines for no reason
+  // just multiplies dead wait time — a real regression a full run-through
+  // caught (see commit history).
+  if (text.length <= 140) return [text];
+  const sentences = text.match(/[^.!?]+[.!?]*(\s+|$)/g) || [text];
+  const chunks = [];
+  for (let s of sentences) {
+    s = s.trim();
+    if (!s) continue;
+    while (s.length > 110) {
+      let cut = s.lastIndexOf(' ', 110);
+      if (cut < 40) cut = 110;
+      chunks.push(s.slice(0, cut).trim());
+      s = s.slice(cut).trim();
+    }
+    if (s) chunks.push(s);
+  }
+  return chunks.length ? chunks : [text];
+}
+
 function speakText(text, glitch=false, slow=false) {
   if (!audioUnlocked || !window.speechSynthesis) return;
   const clean = text.replace(/[█▓▒░_>\[\]\/\\|()≋◈═┌┐└┘│─┬┴●▶]/g,'').replace(/\s+/g,' ').trim();
   if (!clean || clean==='...') return;
-  vQ.push({clean, glitch, slow});
+  splitIntoSpeechChunks(clean).forEach(c => vQ.push({clean:c, glitch, slow}));
   if (!vBusy) drainVoice();
 }
 
 let _devVoiceOverride = null;
+
+// How much the voice itself should sag as signal fails — mirrors
+// typeSpeedForSig() so the audio and the text degrade in step instead of
+// running as two unrelated systems. Only applies to normal live speech;
+// glitch (recordings) and slow (CINDER transcription) keep their own
+// fixed character regardless of live signal.
+function voiceParamsForSig() {
+  if (sigPct >= 50) return {rateAdj:0,    pitchAdj:0,    pauseMs:0,   pauseChance:0};
+  if (sigPct >= 30) return {rateAdj:-0.05, pitchAdj:-0.02, pauseMs:180, pauseChance:0.06};
+  if (sigPct >= 15) return {rateAdj:-0.10, pitchAdj:-0.05, pauseMs:320, pauseChance:0.14};
+  return                   {rateAdj:-0.16, pitchAdj:-0.08, pauseMs:480, pauseChance:0.22};
+}
+
+// Prefer a short allowlist of voices known to sound good and load reliably
+// on both platforms, before falling back to "any English voice," before
+// falling back to the browser/OS default. Web Speech API delegates to the
+// device's own TTS engine — Android and iOS will never sound identical,
+// that's an OS-level difference this can't paper over — but this at least
+// makes the choice deliberate instead of whatever the device defaults to.
+function pickBestVoice(vs) {
+  const preferred = ['Google US English', 'Microsoft Aria Online (Natural) - English (United States)', 'Samantha'];
+  for (const name of preferred) {
+    const v = vs.find(v=>v.name===name);
+    if (v) return v;
+  }
+  return vs.find(v=>/^en(-|_)?(US|us)?/.test(v.lang) && !/compact/i.test(v.name)) || null;
+}
+// "Albert" (macOS/Safari's built-in gravelly voice) doesn't exist on
+// Android — there is usually no equivalent named character voice there at
+// all, so on Android the glitch effect leans on the pitch/rate drop and
+// the static burst instead. This list only helps on platforms that do
+// expose distinct character voices.
+function pickGlitchVoice(vs) {
+  const names = ['albert', 'fred', 'bad news', 'zarvox'];
+  for (const n of names) {
+    const v = vs.find(v=>v.name.toLowerCase().includes(n));
+    if (v) return v;
+  }
+  return null;
+}
 
 function drainVoice() {
   if (!vQ.length) { vBusy=false; return; }
   vBusy=true;
   const {clean, glitch, slow} = vQ.shift();
   if (glitch) playStatic(120+Math.random()*160);
+  const vp = (glitch || slow) ? {rateAdj:0, pitchAdj:0, pauseMs:0, pauseChance:0} : voiceParamsForSig();
   const u = new SpeechSynthesisUtterance(clean);
-  u.rate = glitch ? 0.55 : slow ? 0.70 : 0.84;
-  u.pitch = glitch ? 0.28 : slow ? 0.36 : 0.44;
+  u.rate  = Math.max(0.32, (glitch ? 0.55 : slow ? 0.70 : 0.84) + vp.rateAdj);
+  u.pitch = Math.max(0.05, (glitch ? 0.28 : slow ? 0.36 : 0.44) + vp.pitchAdj);
   u.volume = 0.92;
+  const vs = speechSynthesis.getVoices();
   if (_devVoiceOverride) {
     u.voice = _devVoiceOverride;
   } else if (glitch) {
-    const vs = speechSynthesis.getVoices();
-    const albert = vs.find(v=>v.name.toLowerCase().includes('albert'));
-    if (albert) u.voice = albert;
+    const gv = pickGlitchVoice(vs);
+    u.voice = gv || pickBestVoice(vs) || undefined;
+  } else {
+    const bv = pickBestVoice(vs);
+    if (bv) u.voice = bv;
   }
-  // slow mode: default voice, deliberate pace — used when ARIA transcribes CINDER's words
-  // normal mode: u.voice unset → browser default voice
+  // slow mode: best available default voice, deliberate pace — used when
+  // ARIA transcribes CINDER's words verbatim
 
   // Advance exactly once, whether via onend, onerror, or a watchdog (iOS
   // sometimes never fires events if speech was blocked — that used to freeze
@@ -1398,14 +1471,26 @@ function drainVoice() {
     if (advanced) return;
     advanced = true;
     clearTimeout(watchdog);
-    setTimeout(drainVoice, delay);
+    clearInterval(keepAlive);
+    // Extra pause before the next chunk starts, scaled by signal strength —
+    // this is the audible half of the sync with the text-side stutter.
+    let extra = 0;
+    if (vp.pauseChance>0 && Math.random()<vp.pauseChance) extra = vp.pauseMs + Math.random()*vp.pauseMs;
+    setTimeout(drainVoice, delay+extra);
   };
-  // Estimate spoken length (~12 chars/sec at this rate) + generous buffer
-  const estMs = 1200 + (clean.length / (glitch?7:slow?9:11)) * 1000;
-  const watchdog = setTimeout(()=>advance(120), estMs + 1500);
+  // Estimate spoken length (~12 chars/sec at this rate) + buffer. Kept
+  // tight on purpose — this fixed overhead is now paid per chunk rather
+  // than once per line, so padding it heavily compounds fast on longer
+  // multi-sentence lines.
+  const estMs = 600 + (clean.length / (glitch?7:slow?9:11)) * 1000;
+  const watchdog = setTimeout(()=>advance(120), estMs + 900);
+  // Chrome (desktop and Android) can silently stall mid-utterance if the
+  // engine goes idle without the page nudging it — periodic resume() is
+  // the standard workaround, cheap and harmless if unneeded.
+  const keepAlive = setInterval(()=>{ try{ speechSynthesis.resume(); }catch(e){} }, 4000);
 
   u.onend = ()=>advance(glitch?420:slow?480:160);
-  u.onerror = ()=>advance(160);
+  u.onerror = (e)=>{ try{ console.warn('speechSynthesis error:', e.error); }catch(_){} advance(160); };
   try { speechSynthesis.resume(); } catch(e){}  // iOS can silently pause
   try { speechSynthesis.speak(u); } catch(e){ advance(160); }
 }

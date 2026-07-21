@@ -689,7 +689,7 @@ boot:[
 ],
 rover_reveal:[
   {t:"Ground unit confirmed. CINDER did not want NOVA-7 covering this much ground on foot.",sp:true},
-  {t:"It is locked — a real one, on the frame. Not something I can open from here. Get it open, then tell me.",sp:true},
+  {t:"It is locked. CINDER left me the combination before he went dark: plus, right. Plus, minus, left. Right. Get it open, then tell me.",sp:true},
 ],
 rover_confirm:[
   {t:"Unlocked. Good.",sp:true},
@@ -1422,13 +1422,13 @@ function splitIntoSpeechChunks(text) {
 }
 
 // Speak one line and report back. Returns null when speech is unavailable
-// (muted, unsupported, or nothing speakable), otherwise:
-//   done   — Promise resolving when every chunk of THIS line has finished
-//            (watchdog-guaranteed: resolves even if the engine goes silent)
-//   charMs — the voice's expected pace in ms-per-character, so the
-//            typewriter can pace itself to the audio instead of guessing
-// This is the heart of the text/voice sync: typeLine awaits `done`, so the
-// sequencer can never start line N+1 while line N is still being spoken.
+// (muted, unsupported, or nothing speakable), otherwise { done } — a
+// Promise resolving when every chunk of THIS line has finished, guaranteed
+// by the watchdog in drainVoice() even if the engine goes silent.
+// This is the sync mechanism: typeLine awaits `done` before resolving, so
+// the sequencer can never start line N+1 while line N is still being
+// spoken. The typewriter's own visual pace is intentionally NOT tied to
+// this — see typeLine for why.
 function speakLine(text, glitch=false, slow=false) {
   if (!audioUnlocked || !window.speechSynthesis) return null;
   const clean = text.replace(/[█▓▒░_>\[\]\/\\|()≋◈═┌┐└┘│─┬┴●▶]/g,'').replace(/\s+/g,' ').trim();
@@ -1438,12 +1438,7 @@ function speakLine(text, glitch=false, slow=false) {
   const done = new Promise(r => { resolveDone = r; });
   chunks.forEach((c, i) => vQ.push({clean:c, glitch, slow, onDone: i===chunks.length-1 ? resolveDone : null}));
   if (!vBusy) drainVoice();
-  // Expected speaking pace: ~11 chars/sec at the normal 0.84 rate, scaled
-  // down when the signal-decay rate adjustment slows the voice further.
-  const baseRate = glitch ? 0.55 : slow ? 0.70 : 0.84;
-  const vp = (glitch || slow) ? {rateAdj:0} : voiceParamsForSig();
-  const cps = (glitch ? 7 : slow ? 9 : 11) * ((baseRate + vp.rateAdj) / baseRate);
-  return { done, charMs: 1000 / Math.max(cps, 3) };
+  return { done };
 }
 
 // Fire-and-forget wrapper for callers that don't need the sync handle.
@@ -1588,23 +1583,25 @@ function addLine(text, cls='') {
 // Centered on the original fixed pace (48/27) rather than stretching both
 // ends further out — degrades noticeably without ever reading as "broken."
 function typeSpeedForSig() {
-  if (sigPct >= 50) return {base:44, rnd:24, stutter:0};
-  if (sigPct >= 30) return {base:49, rnd:26, stutter:0.015};
-  if (sigPct >= 15) return {base:55, rnd:28, stutter:0.03};
-  return {base:62, rnd:31, stutter:0.045};
+  if (sigPct >= 50) return {base:34, rnd:18, stutter:0};
+  if (sigPct >= 30) return {base:38, rnd:20, stutter:0.015};
+  if (sigPct >= 15) return {base:43, rnd:22, stutter:0.03};
+  return {base:49, rnd:25, stutter:0.045};
 }
 function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
   return new Promise(res => {
-    // When this line is spoken, the typewriter paces itself to the voice's
-    // expected chars/sec and the promise resolves only when BOTH the text
-    // and the audio are done. If the voice finishes early the remaining
-    // text fast-forwards; if the voice runs long the cursor holds at the
-    // end of the line until it catches up. Either way, the next line can
-    // never start while this one is still being spoken — that cross-line
-    // drift was the root of the desync.
+    // Text always types at its own fast, fixed pace — never slowed down to
+    // chase a guessed voice duration. Android's real TTS rate varies by
+    // device/engine and can't be predicted from here; pacing to a guess
+    // made the text read as "too slow, then rubber-bands to catch up,"
+    // which was worse than not guessing at all.
+    //
+    // The only thing carried over from speech is a completion gate: if the
+    // voice is still talking after the text finishes typing, the cursor
+    // just holds (no snap) until it's done. That alone is what stops line
+    // N+1 from starting while line N is still being spoken — the actual
+    // fix for the original cross-line drift.
     const speech = doSpeak ? speakLine(text, glitch, slow) : null;
-    let speechDone = !speech;
-    if (speech) speech.done.then(()=>{ speechDone = true; });
 
     const d = document.createElement('div');
     d.className = 'line'+(cls?' '+cls:'');
@@ -1615,28 +1612,19 @@ function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
     ledA.classList.add('tx'); // amber LED strobes while the channel is transmitting
     let i=0;
     const ts = typeSpeedForSig();
-    // Voice-paced typing runs a hair faster than the voice itself (x0.92)
-    // so text leads slightly — reading along feels natural; trailing the
-    // audio feels broken. Silent lines keep the signal-tiered pace.
-    const base = speech ? speech.charMs*0.92 : (glitch?65:ts.base);
-    const rnd  = speech ? speech.charMs*0.25 : (glitch?39:ts.rnd);
+    const base = glitch?65:ts.base, rnd=glitch?39:ts.rnd;
     (function step(){
       i++;
       d.textContent = text.slice(0,i);
       d.appendChild(cur);
       feed.scrollTop = feed.scrollHeight;
       if (i<text.length) {
-        let pause;
-        if (speech && speechDone) {
-          pause = 9; // voice already finished — sprint the remaining text
-        } else {
-          pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
-          if (!glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
-        }
+        let pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
+        if (!glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
         setTimeout(step, pause);
       } else {
         const finish = () => { cur.remove(); ledA.classList.remove('tx'); res(); };
-        if (speech && !speechDone) speech.done.then(()=>setTimeout(finish, 90));
+        if (speech) speech.done.then(finish);
         else finish();
       }
     })();
@@ -1844,7 +1832,7 @@ async function boot() {
   await W8(700);
   await playSeq(SCRIPT.boot, 'aria', 520);
   addLine('> LOCATE YOUR GROUND ROVER', 'sys');
-  addLine('> SCAN ON CONTACT', 'sys');
+  addLine('> SCAN ON CONTACT — KEEP THIS SCREEN OPEN WHILE YOU SCAN', 'sys');
   // stage stays 0 — the rover gate is cleared inside submit()
   const lastLine = SCRIPT.boot[SCRIPT.boot.length-1].t;
   saveState({lastLine});
@@ -1941,24 +1929,16 @@ function checkQrUnlock() {
 // flow, two ways to trigger it.
 function handleCipherScan(cipher) {
   if (!actx) initBlip();
-  if (stage >= 1) {
-    // Mission active — show the dramatic scan animation (rocket onward)
-    showNfcScanAnimation(cipher, ()=>{
-      const inp = document.getElementById('inp');
-      inp.value = cipher.toUpperCase();
-      submit();
-      setTimeout(()=>{ try { document.activeElement?.blur(); } catch(e){} }, 150);
-    });
-  } else {
-    // Stage 0 only (ground unit) — lighter flow, no ceremony yet
-    addLine('> NFC TAG READ — CIPHER EXTRACTED', 'sys');
-    blip(720, 0.1); pulse(20);
-    setTimeout(()=>{
-      const inp = document.getElementById('inp');
-      inp.value = cipher.toUpperCase();
-      submit();
-    }, 500);
-  }
+  // Every scan gets the full dramatic tap-to-read ceremony, including the
+  // very first one (the rover) — that first scan is what teaches Trevor
+  // how scanning works for the rest of the hunt, so it needs the same
+  // "TAG READ" animation as every scan after it, not a silent shortcut.
+  showNfcScanAnimation(cipher, ()=>{
+    const inp = document.getElementById('inp');
+    inp.value = cipher.toUpperCase();
+    submit();
+    setTimeout(()=>{ try { document.activeElement?.blur(); } catch(e){} }, 150);
+  });
 }
 
 function checkCipherParam() {
@@ -2103,7 +2083,6 @@ async function submit() {
     addLine('> NFC TAG READ — GROUND UNIT DETECTED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.rover_reveal, 'aria', 360);
-    addLine(ART.bike, 'ascii rover');
     addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
     saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
     busy=false; enableInput(); return;
@@ -2115,6 +2094,7 @@ async function submit() {
       playUnlockSound(); hapticPattern([50,35,110,35,110]);
       addLine('> GROUND UNIT CONFIRMED UNLOCKED', 'sys');
       await W8(500);
+      addLine(ART.bike, 'ascii rover');
       await playSeq(SCRIPT.rover_confirm, 'aria', 360);
       addLine('> GROUND UNIT 7 ACTIVE', 'sys');
       addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');

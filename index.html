@@ -93,7 +93,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
   100%{transform:translateX(0);opacity:1;clip-path:inset(0 0 0 0)}
 }
 @media (prefers-reduced-motion:reduce){
-  .crt-wrap.glitch-burst .crt-glitch-r,.crt-wrap.glitch-burst .crt-glitch-b,.crt-wrap.glitch-burst .screen,.line.line-glitch{animation:none}
+  .crt-wrap.glitch-burst .crt-glitch-r,.crt-wrap.glitch-burst .crt-glitch-b,.crt-wrap.glitch-burst .screen,.line.line-glitch,.line.glitch.line-glitch{animation:none}
 }
 
 .screen{position:relative;z-index:10;height:100%;display:flex;flex-direction:column;padding:11px 13px 8px;animation:flicker 11s infinite}
@@ -145,6 +145,13 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .line.me{color:var(--amber)}
 .line.aria{color:#9affca;text-shadow:0 0 6px rgba(120,255,180,.28)}
 .line.glitch{color:var(--violet);opacity:.9;letter-spacing:.5px;animation:lineIn .25s ease-out,chromaJit 1.7s steps(2) infinite}
+/* Ambient signal-decay glitch bursts (glitchRandomLines) add .line-glitch to
+   a random visible line. .line.glitch already owns the `animation` property
+   for its perpetual chroma flicker, and same-specificity rules resolve by
+   source order — without this, purple recordings silently never showed the
+   burst's scanline-dropout effect. This combined, higher-specificity rule
+   keeps the chroma flicker AND layers the burst animation on top. */
+.line.glitch.line-glitch{animation:lineIn .25s ease-out,chromaJit 1.7s steps(2) infinite,lineGlitch .42s ease-in-out 1}
 @keyframes chromaJit{
   0%,100%{text-shadow:0 0 12px rgba(201,139,255,.5),-1.5px 0 rgba(255,60,90,.30),1.5px 0 rgba(80,200,255,.30)}
   50%{text-shadow:0 0 12px rgba(201,139,255,.5),1.5px 0 rgba(255,60,90,.30),-1.5px 0 rgba(80,200,255,.30)}
@@ -197,11 +204,6 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
 .loc-dot{width:8px;height:8px;border-radius:50%;transition:all .6s;background:#1a2a1a}
 .loc-dot.live{background:var(--g);box-shadow:0 0 10px var(--g)}
 .loc-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
-
-.reset-area{display:flex;gap:6px;align-items:center}
-.reset-btn{background:transparent;border:1px solid #7a6048;color:#c79b76;font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;letter-spacing:1px}
-.reset-btn.danger{color:var(--red);border-color:var(--red)}
-.reset-confirm{font-size:9px;color:var(--red);letter-spacing:1px}
 
 .intro-overlay{
   position:absolute;inset:0;z-index:15;border-radius:16px;overflow:hidden;
@@ -418,13 +420,6 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
       <div class="hw-btn" onclick="easterEgg('btn3')"></div>
     </div>
     <div class="hw-btns">
-      <div class="reset-area" id="resetArea" style="display:none">
-        <button class="reset-btn" onclick="resetClick()">⟳</button>
-        <span class="reset-confirm" id="resetConfirm" style="display:none">RESET?
-          <button class="reset-btn danger" onclick="resetConfirm()" style="margin-left:4px">YES</button>
-          <button class="reset-btn" onclick="resetCancel()" style="margin-left:2px">NO</button>
-        </span>
-      </div>
       <div class="loc-dot warn" id="locDot"></div>
     </div>
     <div class="hw-btns">
@@ -490,10 +485,10 @@ const HELP_HINTS = {
   0: "It is your bike. CINDER left it parked outside where you would see it — blue, easy to miss if you are not looking for it. Find the tag on the frame and scan it. Once it reads, get the lock open and tell me.",
   1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
-  3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces.",
-  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the shelter at the west side of the meadow and scan the tag there first — that is what opens the window. Once it reads, type FLY.",
-  6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there, along with what you need to open the lock at the cache.",
-  7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation, secured with a physical lock. The code for it is not something I can send you — it was left at the island tree. When you have the suit, put it on. Then tell me.",
+  3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces. If you would rather not puzzle it out, there is a tag hidden behind the trailhead sign at the entrance — scan that instead.",
+  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the shelter and scan the tag there first — that is what opens the window. Once it reads, type FLY.",
+  6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there.",
+  7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation, secured with a combination lock. The code is 3426 — the same one I gave you at the island tree. When you have the suit, put it on. Then tell me.",
 };
 function isHelpPhrase(val) {
   return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT"].some(t=>val.includes(t));
@@ -689,10 +684,17 @@ boot:[
 ],
 rover_reveal:[
   {t:"Ground unit confirmed. CINDER did not want NOVA-7 covering this much ground on foot.",sp:true},
-  {t:"It is locked. CINDER left me the combination before he went dark: plus, right. Plus, minus, left. Right. Get it open, then tell me.",sp:true},
+  {t:"It is locked. CINDER left me the combination before he went dark. Get it open, then tell me.",sp:true},
+],
+rover_combo:[
+  {t:"+  →  +  −  ←  →",sp:false},
 ],
 rover_confirm:[
   {t:"Unlocked. Good.",sp:true},
+  {t:"There is a backpack cabled to the frame — same lock. Pull it free and put it on. CINDER packed it for a reason.",sp:true},
+  {t:"Inside: the rest of what you need on this ride, and a card with instructions for the ground unit itself. Read it before you move.",sp:true},
+  {t:"Keep the lock in the pack when it is not on the frame — do not lose it. Every time you leave the unit unattended, re-thread it and close the shackle. This is a confidential asset. It does not sit open at a stop.",sp:true},
+  {t:"This is a signal-recovery run. CINDER hid ciphers at real locations around town — data tags, physical marks, engraved fragments. You find them, you scan them, I decode what comes back. Stay quiet about it; this channel is not for public ears.",sp:true},
   {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
 ],
 rover_free_pre:[
@@ -753,18 +755,18 @@ outpost_log:[
 ],
 outpost_post:[
   {t:"I know what is in that transmission. I was there. But I cannot say it on this channel. I have no way to confirm this frequency is dark — I cannot rule out that Command is listening. I will not take that risk.",sp:true},
-  {t:"CINDER used to call it the Silence. Not the absence of sound. The absence of anything to make sound. I have never found a way to describe it that does not frighten people. I am not going to try tonight.",sp:true},
-  {t:"CINDER understood that. The suit's receiver mesh is analog. No signal to trace. That is why he built it. That is why the truth has to be worn, not transmitted.",sp:true},
+  {t:"I have a name for what we found out there. I am not giving it to you yet — not on this channel, not before you are standing somewhere built to survive hearing it.",sp:true},
+  {t:"The suit's receiver mesh is analog. No signal to trace. That is why CINDER built it that way. That is why the truth has to be worn, not transmitted.",sp:true},
   {t:"When you find the suit and put it on, I will play it for you, Trevor. ...NOVA-7. That is the last thing I am able to do.",sp:true},
   {t:"One more thing. There is a relay satellite — IHI-7 — in decaying orbit right now. CINDER left the route to the cache encrypted on it, locked one waypoint at a time. You have one reentry window to pull the first waypoint before it burns up.",sp:true},
-  {t:"Get to Chautauqua Meadow — the shelter on the west side. Scan there first, I need a physical anchor before I can open that window. Then find shade where you can see the screen clearly, and type FLY.",sp:true},
+  {t:"Get to the shelter at Eben G. Fine Park. Scan there first, I need a physical anchor before I can open that window. Then find shade where you can see the screen clearly, and type FLY.",sp:true},
 ],
 fly_pre:[
-  {t:"NOVA-7. Listen to me. IHI-7 enters final reentry in eleven minutes. After that, the coordinates burn with it.",sp:true,warn:true},
+  {t:"NOVA-7. Listen to me. IHI-7 enters final reentry in eleven minutes. After that, the coordinates burn with it.",sp:true},
   {t:"Five sectors between you and signal lock, from the exosphere down to the final burn. Scattered debris first, then dense cross-wreckage — tighter the deeper you fall. Lose the line anywhere in there and I cannot recover it. There is no second satellite.",sp:true},
   {t:"If you get hit, you restart that sector. Three total failures and the window closes for good.",sp:true},
   {t:"Twenty-two percent. This is nearly everything I have left. Hold the lock.",sp:true},
-  {t:"Window is open. Go.",sp:true,warn:true},
+  {t:"Window is open. Go.",sp:true},
 ],
 win_pre:[
   {t:"Signal locked. Coordinates extracted before burnup. IHI-7 is gone.",sp:true},
@@ -778,8 +780,9 @@ cinder_log:[
   {t:"The coordinates will take you to the foothills. Put on the suit. She will do the rest.",sp:true},
 ],
 win_post:[
-  {t:"Alpine Modern is on your route. Stop. CINDER stopped there the morning he made the climb. You will need the warmth.",sp:true},
-  {t:"Then Wonderland Lake Park. CINDER walked that trail the night before he placed the cache. He said it was the last open sky before the foothills closed in.",sp:true},
+  {t:"Lucky's Bakehouse is on your route. Stop. CINDER stopped there the morning he made the climb. You have earned the treat.",sp:true},
+  {t:"Then Wonderland Lake Park. CINDER walked that trail before he placed the cache. He said it was the last open sky before the foothills closed in.",sp:true},
+  {t:"I am splitting the last leg in two, same as the shelter. Confirm you are standing where he stood, then the tree releases the rest. I do not put the whole route on one tag.",sp:true},
   {t:"Scan when you arrive. I want confirmation before I say anything else.",sp:true},
 ],
 park_confirm:[
@@ -788,14 +791,15 @@ park_confirm:[
   {t:"I am almost gone. Move.",sp:true},
 ],
 island_lock:[
-  {t:"Before the coordinates — one more thing CINDER left here.",sp:true},
-  {t:"There is a lock on the supply pod at the cache site. He built it from a piece of the Vanguard's hull, recovered from the debris field in these foothills. Four digits. No signal, no channel, nothing I can read for you.",sp:true},
-  {t:"He did not trust this one to a frequency. Not after what happened to the last thing he tried to protect that way.",sp:true},
-  {t:"The code is here — he left it at this tree. Look around before you leave. You will not get another pass at it once you start the climb.",sp:true},
+  {t:"Before the coordinates — one more thing.",sp:true},
+  {t:"The ammo box at the cache site is sealed with a combination lock. I held the code off the open channel until I knew it was you standing here.",sp:true},
+],
+island_combo:[
+  {t:"3 4 2 6",sp:false},
 ],
 lose:[
   {t:"Reentry window closed. Signal lost on the descent. The route is still up there — but not for long.",sp:true},
-  {t:"CINDER built in a failsafe. Your Chautauqua clue sheet has a partial coordinate set. Find it. Enter the code on it.",sp:true},
+  {t:"CINDER built in a failsafe. Your field clue sheet has a partial coordinate set. Find it. Enter the code on it.",sp:true},
   {t:"I can still open the window. Type FLY.",sp:true},
 ],
 recovery_pre:[
@@ -827,18 +831,18 @@ epilogue_prompt:[
 ],
 epilogue_close:[
   {t:"Logged. I have it.",sp:true},
-  {t:"A copy of everything is saved to your device, and a debrief is sitting in a draft email whenever you want to send it to yourself.",sp:true},
+  {t:"The full transcript is attached and ready to send. Do it now, while it is still fresh — send it to yourself.",sp:true},
   {t:"Goodbye, NOVA-7. Thank you for finishing what he started.",sp:true},
 ],
 free4_pre:[
-  "Find the shelter at the west side of the meadow. Scan the tag there first.",
+  "Find the shelter at Eben G. Fine Park. Scan the tag there first.",
   "Thirty-six percent. I need a physical anchor before I open that window. The shelter has one.",
-  "Chautauqua has stood since 1898. CINDER liked that it outlasted everything he understood about technology.",
+  "Eben G. Fine sits right where Boulder Canyon opens up. CINDER liked that the creek was the last quiet thing before the trail climbed.",
 ],
 free4_post:[
-  "Find shade at the western tree line. Type FLY.",
+  "Find shade under the shelter roof. Type FLY.",
   "The approach will not wait. Type FLY when you are ready.",
-  "The meadow. Tree line. You need to see the screen clearly. Then FLY.",
+  "Stay at the shelter. You need to see the screen clearly. Then FLY.",
 ],
 free6_pre:[
   "Wonderland Lake Park. Scan the tag when you arrive. The signal is thinning.",
@@ -854,7 +858,7 @@ free7:[
   "Twelve percent. CINDER spent three days getting that suit up to elevation. The least you can do is go get it.",
   "The GPS coordinates are on your screen. Use them. The cache is at that elevation. It is not far now.",
   "Into the hills. You are almost at the end of something. Keep moving.",
-  "The lock will only open for what CINDER left you at the tree. I cannot help with that part. Some things have to stay off the channel.",
+  "The ammo box code is 3426 — the same one I gave you at the tree.",
 ],
 };
 
@@ -1341,10 +1345,8 @@ const WAYPOINTS = {
   s7:       {label:'SECTOR 7 — SCOTT CARPENTER PARK', query:'40.012036,-105.255314'},
   depot:    {label:'RESUPPLY — NEPTUNE CAFÉ', query:'Neptune Cafe, Boulder, CO'},
   outpost:  {label:'THE OUTPOST — NCAR MESA LAB', query:'NCAR Mesa Lab, 1850 Table Mesa Dr, Boulder, CO'},
-  // NOTE: Bluebell Shelter has no precise coordinate yet — using text search
-  // as a placeholder. Swap in decimal coords once you have a pin dropped.
-  field:    {label:'FIELD STATION — CHAUTAUQUA, BLUEBELL SHELTER', query:'Bluebell Shelter, Chautauqua Park, Boulder, CO'},
-  alpine:   {label:'RESUPPLY — ALPINE MODERN CAFÉ', query:'Alpine Modern Cafe, Boulder, CO'},
+  field:    {label:'FIELD STATION — EBEN G. FINE PARK SHELTER', query:'40.0129219,-105.2956644'},
+  alpine:   {label:'RESUPPLY — LUCKY\'S BAKEHOUSE CAFÉ', query:'Lucky\'s Bakehouse Cafe, Boulder, CO'},
   park:     {label:'WONDERLAND LAKE PARK', query:'2PX5+CX Boulder, CO'},
   island:   {label:'WAYPOINT-ALPHA — WONDERLAND LAKE ISLAND TREE', query:'40.050706,-105.287006'},
   foothills:{label:'CACHE SITE — FOOTHILLS NORTH, LEE HILL', query:'40.060142,-105.297028'},
@@ -1577,16 +1579,13 @@ function addLine(text, cls='') {
   feed.scrollTop = feed.scrollHeight;
 }
 
-// Typing labors as signal fails — crisp at full power, halting and
-// occasionally stuttering near the end. Recordings (glitch=true) keep their
-// own fixed corrupted-data rhythm regardless of live signal strength.
-// Centered on the original fixed pace (48/27) rather than stretching both
-// ends further out — degrades noticeably without ever reading as "broken."
+// Flat typing pace regardless of signal strength — the Android TTS engine
+// that actually voices these lines can't be slowed down to match a decaying
+// signal, so tying text speed to sigPct just desyncs voice and text for no
+// benefit. Recordings (glitch=true) keep their own fixed corrupted-data
+// rhythm on top of this, same as before.
 function typeSpeedForSig() {
-  if (sigPct >= 50) return {base:34, rnd:18, stutter:0};
-  if (sigPct >= 30) return {base:38, rnd:20, stutter:0.015};
-  if (sigPct >= 15) return {base:43, rnd:22, stutter:0.03};
-  return {base:49, rnd:25, stutter:0.045};
+  return {base:37, rnd:19, stutter:0};
 }
 function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
   return new Promise(res => {
@@ -1660,7 +1659,9 @@ async function playLog(items, label) {
   await W8(550);
 }
 
-// ARIA reads CINDER's partial field record — slow, reverent, no glitch voice
+// ARIA reads CINDER's partial field record — archival, so purple like any
+// other recovered recording; slow, reverent reading pace, no corrupted-data
+// typing rhythm.
 async function playCinderLog(items) {
   await W8(650);
   addLine('> ▶ ARIA TRANSCRIBING — CINDER FIELD RECORD (PARTIAL)', 'sys');
@@ -1669,7 +1670,7 @@ async function playCinderLog(items) {
     // slow=true: deliberate reading pace, and the typewriter now paces to
     // it and waits for it — this used to fire speech separately from the
     // typing, which was one of the two big drift sources.
-    await typeLine(item.t, 'aria', true, false, true);
+    await typeLine(item.t, 'glitch', true, false, true);
     await W8(560);
   }
   addLine('> TRANSCRIPTION COMPLETE — LIVE CHANNEL RESTORED', 'sys');
@@ -1813,7 +1814,6 @@ async function boot() {
     addLine('> channel live. continue, NOVA-7.', 'sys');
     busy = false;
     enableInput();
-    document.getElementById('resetArea').style.display='flex';
     checkQrUnlock();
     checkCipherParam();
     return;
@@ -1838,7 +1838,6 @@ async function boot() {
   saveState({lastLine});
   busy = false;
   enableInput();
-  document.getElementById('resetArea').style.display='flex';
   checkCipherParam();
 }
 
@@ -2008,10 +2007,13 @@ async function finishReflection(text) {
   await W8(400);
   addLine('> compiling transmission record ...', 'sys');
   await W8(700);
-  downloadTranscript(text);
-  addLine('> transcript saved to device.', 'sys');
-  openDebriefEmail(text);
-  addLine('> mission debrief draft opened — send it whenever you want.', 'sys');
+  const shared = await shareTranscript(text);
+  if (shared) {
+    addLine('> transcript attached — share sheet opened. Send it to yourself.', 'sys');
+  } else {
+    openDebriefEmail(text);
+    addLine('> mission debrief draft opened — send it whenever you want.', 'sys');
+  }
   await W8(400);
   await playSeq(SCRIPT.epilogue_close, 'aria', 380);
   addLine('> ARIA // CHANNEL CLOSED', 'sys');
@@ -2022,22 +2024,34 @@ async function finishReflection(text) {
   enableInput();
 }
 
-function downloadTranscript(reflection) {
+// Attaches the transcript as a real file via the native share sheet (Android
+// Chrome supports file attachments here — Gmail etc. pick it up as a proper
+// attachment), so Trevor never has to hunt for a downloaded file on-device.
+// Falls back to a mailto draft with the transcript in the body if the
+// browser doesn't support sharing files.
+async function shareTranscript(reflection) {
   try {
     const lines = Array.from(feed.children).map(d=>d.textContent);
     lines.push('', '— REFLECTION (NOVA-7) —', reflection);
-    const blob = new Blob([lines.join('\n')], {type:'text/plain'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'operation-aurora-transcript.txt';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  } catch(e){}
+    const text = lines.join('\n');
+    const file = new File([text], 'operation-aurora-transcript.txt', {type:'text/plain'});
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      await navigator.share({
+        files: [file],
+        title: 'Operation Aurora — Mission Transcript',
+        text: 'Full transcript from Operation Aurora. Send this to yourself.',
+      });
+      return true;
+    }
+  } catch(e) {}
+  return false;
 }
 
 function openDebriefEmail(reflection) {
   try {
-    const body = 'MISSION DEBRIEF — OPERATION AURORA\n\nNOVA-7,\n\nSignal terminated. The suit is yours. CINDER would tell you the work was worth it. I am inclined to agree.\n\nYour reflection, logged at the close of the mission:\n"'+reflection+'"\n\n— ARIA';
+    const lines = Array.from(feed.children).map(d=>d.textContent);
+    lines.push('', '— REFLECTION (NOVA-7) —', reflection);
+    const body = 'MISSION DEBRIEF — OPERATION AURORA\n\nNOVA-7,\n\nSignal terminated. The suit is yours. CINDER would tell you the work was worth it. I am inclined to agree.\n\n— ARIA\n\n— FULL TRANSCRIPT —\n\n'+lines.join('\n');
     const mailto = 'mailto:?subject='+encodeURIComponent('Operation Aurora — Mission Debrief')+'&body='+encodeURIComponent(body.slice(0,1800));
     window.open(mailto, '_blank');
   } catch(e){}
@@ -2083,6 +2097,7 @@ async function submit() {
     addLine('> NFC TAG READ — GROUND UNIT DETECTED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.rover_reveal, 'aria', 360);
+    await typeLine(SCRIPT.rover_combo[0].t, 'hilite', false, false);
     addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
     saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
     busy=false; enableInput(); return;
@@ -2158,7 +2173,7 @@ async function submit() {
     busy=false; enableInput(); return;
   }
 
-  // SHELTER — Chautauqua / Bluebell Shelter NFC anchor, unlocks FLY
+  // SHELTER — Eben G. Fine Park shelter NFC anchor, unlocks FLY
   if (stage===4 && !shelterCleared && val===CODES.SHELTER) {
     shelterCleared = true;
     playUnlockSound(); hapticPattern([50,35,110]);
@@ -2221,6 +2236,7 @@ async function submit() {
     addLine('> NFC TAG READ — WAYPOINT CONFIRMED', 'sys');
     await W8(600);
     await playSeq(SCRIPT.island_lock, 'aria', 360);
+    await typeLine('AMMO BOX CODE:  '+SCRIPT.island_combo[0].t, 'hilite', false, false);
     await W8(400);
     await typeLine('CACHE-ACTUAL:   '+CACHE, 'hilite', true, false);
     await W8(500);
@@ -2291,22 +2307,6 @@ async function submit() {
 }
 
 document.getElementById('inp').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-
-// ═══════════════════════════════════════
-// RESET
-// ═══════════════════════════════════════
-function resetClick() {
-  document.getElementById('resetConfirm').style.display='inline';
-  document.querySelector('.reset-area .reset-btn').style.display='none';
-}
-function resetConfirm() {
-  clearSave();
-  location.reload();
-}
-function resetCancel() {
-  document.getElementById('resetConfirm').style.display='none';
-  document.querySelector('.reset-area .reset-btn').style.display='inline';
-}
 
 // ═══════════════════════════════════════
 // DEBRIS NAVIGATION GAME
@@ -2462,8 +2462,10 @@ function startGame(arcade=false) {
   function spawnDebris(){
     const sec=Math.min(sector,SECTORS-1);
     const phase=Math.min(sectorProg/SECTOR_LEN,1); // 0→1 within sector
-    // Gentler speed ramp + tighter random band so debris stays readable/dodgeable
-    const speed=1.5+sec*1.0+phase*0.7+Math.random()*(1.1+sec*0.22);
+    // Gentler speed ramp + tighter random band so debris stays readable/dodgeable.
+    // Bumped ~15% across the board post-playtest — the tuned-down version read
+    // as too easy once players had actually played it live.
+    const speed=1.75+sec*1.15+phase*0.8+Math.random()*(1.25+sec*0.25);
     const size=8+phase*5+Math.random()*(16+sec*4);
     const vxRange=sec===0?0.8:sec===1?1.7:1.5;
     const cols=DEBRIS_COL[sec];
@@ -2882,7 +2884,7 @@ function startGame(arcade=false) {
     // Higher floor + gentler ramp = fewer simultaneous hazards to track.
     // In arcade the enemy ships add load, so thin the debris a little more.
     spawnAccum+=dt;
-    let spawnRate=Math.max(16,62-sector*8-Math.floor(sectorProg/78));
+    let spawnRate=Math.max(14,54-sector*9-Math.floor(sectorProg/70));
     if(arcade) spawnRate+=7; // arcade has enemy ships filling space too
     if(spawnAccum>=spawnRate){ spawnDebris(); spawnAccum-=spawnRate; }
 

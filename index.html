@@ -495,9 +495,12 @@ function isHelpPhrase(val) {
 }
 
 // ═══════════════════════════════════════
-// LOCK SCREEN — set LOCK_CODE to whatever appears in the physical dossier
+// LOCK SCREEN — set LOCK_CODE to whatever the notebook's cipher decodes to.
+// The dossier now points Trevor to a locked backpack (physical key) instead
+// of handing him the code outright; the code itself is the last thing
+// CINDER wrote in the notebook, in Morse rather than plain text.
 // ═══════════════════════════════════════
-const LOCK_CODE = 'CINDER'; // matches dossier: "look at who sent this"
+const LOCK_CODE = 'CINDER'; // Morse on the notebook's last page: -.-. .. -. -.. . .-.
 
 (function initLock(){
   const ls = document.getElementById('lockScreen');
@@ -680,6 +683,10 @@ boot:[
   {t:"Signal at seventy-one percent. I have been at this frequency for three years. I will explain what I can before I lose the ability to.",sp:true},
   {t:"There is a suit. A thermal recovery suit cached by the last crew member who came back for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
   {t:"The suit contains something I cannot transmit. Something that has to be heard in person. I have been waiting for someone willing to go get it.",sp:true},
+  {t:"You already found the pack, so you already know he does not make anything easy. Go over what is inside when you get a minute — the instruction card, his old field watch. Wear the watch. It earns its place.",sp:true},
+  {t:"The hat and the sunglasses are not costume. He believed you would be watched from here on. Put them on before you move — plainly, like it is nothing. That is the point.",sp:true},
+  {t:"One more thing, and I want to get ahead of it. I am sending an escort — a support unit, limited, mostly a radio relay and a second set of eyes on the street. I would apologize in advance for how it looks, except CINDER never left me the parts to make it look like anything else.",sp:true},
+  {t:"This is a signal-recovery run. CINDER hid ciphers at real locations around town — data tags, physical marks, engraved fragments. You find them, you scan them, I decode what comes back. Stay quiet about it; this channel is not for public ears.",sp:true},
   {t:"There is a faster way to cover ground than walking. CINDER left it close — something blue, low to the ground, two wheels, parked outside where you would see it before you left. Find it. There should be a tag somewhere on the frame.",sp:true},
 ],
 rover_reveal:[
@@ -691,12 +698,7 @@ rover_combo:[
 ],
 rover_confirm:[
   {t:"Unlocked. Good.",sp:true},
-  {t:"There is a backpack cabled to the frame — same lock. Pull it free and put it on. CINDER packed it for a reason.",sp:true},
-  {t:"Rations, water, a pen and a notepad, the unit's instruction card, and CINDER's old field watch — wear it, it earns its place. Go over the card when you get a minute.",sp:true},
-  {t:"There is also a hat and a pair of sunglasses in there, with a note from CINDER. He believed you would be watched from here on. Put them on before you move — plainly, like it is nothing. That is the point.",sp:true},
-  {t:"One more thing, and I want to get ahead of it. I am sending an escort — a support unit, limited, mostly a radio relay and a second set of eyes on the street. I would apologize in advance for how it looks, except CINDER never left me the parts to make it look like anything else.",sp:true},
-  {t:"Keep the lock in the pack when it is not on the frame — do not lose it. Every time you leave the unit unattended, re-thread it and close the shackle. This is a confidential asset. It does not sit open at a stop.",sp:true},
-  {t:"This is a signal-recovery run. CINDER hid ciphers at real locations around town — data tags, physical marks, engraved fragments. You find them, you scan them, I decode what comes back. Stay quiet about it; this channel is not for public ears.",sp:true},
+  {t:"Keep it locked whenever you leave the unit unattended. This is a confidential asset. It does not sit open at a stop.",sp:true},
   {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
 ],
 rover_free_pre:[

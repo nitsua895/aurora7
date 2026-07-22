@@ -2344,7 +2344,7 @@ async function boot() {
   await playSeq(SCRIPT.boot_pre, 'aria', 520);
   await showEscortLocationCoords();
   await typeLine('When it picks up, say "initiate escort" — that is the verbal confirmation it is listening for. It will not move until it hears that exact phrase.', 'aria', true, false);
-  await waitForTap('HOME ANDROID LOCATION', '8594865042');
+  await waitForTap('HOME ANDROID LOCATION', '7203784696');
 
   // Hand control back so the escort's own NFC scan (and the naming prompt
   // it triggers) can actually reach submit() — busy stays true for the
@@ -2694,11 +2694,24 @@ async function submit() {
     document.getElementById('inp').placeholder = 'transmit to ARIA...';
     await typeLine('Logged. '+escortName+' it is.', 'aria', true, false);
     saveState({escortName});
-    busy=false; enableInput();
-    // If boot() is paused waiting on this (the first-contact flow), let it
-    // continue into boot_post. Outside that flow (a later re-scan) this is
-    // null and there's nothing to resume.
-    if (_escortReadyResolve) { _escortReadyResolve(); _escortReadyResolve = null; }
+    if (_escortReadyResolve) {
+      // Normal first-contact flow: boot() is paused on waitForEscortReady and
+      // plays boot_post itself once resolved.
+      busy=false; enableInput();
+      _escortReadyResolve(); _escortReadyResolve = null;
+    } else if (stage===0 && !bikeRevealed) {
+      // Resumed after a reload mid-naming (boot took the resume path, so
+      // nothing is waiting on the resolver) — drive the post-escort intro
+      // directly so he still gets sent to the ground rover instead of
+      // dead-ending here.
+      await playSeq(SCRIPT.boot_post, 'aria', 520);
+      addLine('> LOCATE YOUR GROUND ROVER', 'sys');
+      addLine('> SCAN ON CONTACT — KEEP THIS SCREEN OPEN WHILE YOU SCAN', 'sys');
+      saveState({lastLine:SCRIPT.boot_post[SCRIPT.boot_post.length-1].t});
+      busy=false; enableInput();
+    } else {
+      busy=false; enableInput();
+    }
     return;
   }
 
@@ -2744,6 +2757,14 @@ async function submit() {
     busy=false; enableInput();
     document.getElementById('inp').placeholder = 'name the unit...';
     return;
+  }
+
+  // Don't let the bike scan jump the queue while the support android is
+  // still being brought online — otherwise the ground-unit reveal fires
+  // before the escort is named and the naming prompt never gets its turn.
+  if (stage===0 && (awaitingEscortScan || awaitingEscortName) && val===CODES.ROVER) {
+    await typeLine('Not yet — bring the support unit online first. Scan its tag'+(awaitingEscortName?' and give it a name':'')+' before you touch the ground unit.', 'aria', true, false);
+    busy=false; enableInput(); return;
   }
 
   // GROUND UNIT (bike) — stage 0, two sub-steps: scan reveals it needs a

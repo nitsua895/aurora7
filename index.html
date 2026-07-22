@@ -686,11 +686,11 @@ async function resumeAfterSeizure() {
   busy = true; disableInput();
   saveState({});
   addLine('// PRIVATE CHANNEL — OVERRIDE ACCEPTED', 'chapter');
-  await W8(400);
+  await W8(650);
   blip(620, 0.12); hapticPattern([50,35,110]);
   addLine('> ARIA MK-IV — SIGNAL REACQUIRED', 'sys');
-  await W8(500);
-  await typeLine("...NOVA-7? I have you. They cut the public band, but the unit's private line held. Do not trust anything you see on the open channel from here — this one is clean.", 'aria', true, false);
+  await W8(900);
+  await playSeq(SCRIPT.signal_recover, 'aria', 520);
   await W8(400);
   await typeLine('WAYPOINT-ALPHA: '+FINAL, 'hilite', true, false);
   addLine('> WAYPOINT: WONDERLAND LAKE — ISLAND TREE', 'sys');
@@ -914,6 +914,19 @@ escort_activate:[
   {t:"I did say I would apologize in advance. Whatever CINDER had lying around went into that android. Function over form. Mostly function.",sp:true},
   {t:"It will not hold a conversation with you. Treat it like a radio with legs.",sp:true},
   {t:"One more thing, and then I will stop talking about it. If this channel ever goes dark, the unit is carrying a private override cipher of its own. It does not run through me, and it will not be written anywhere on this screen. Remember that.",sp:true},
+],
+// ARIA reconnecting after the signal-seizure override — deliberately slow,
+// same stutter treatment as her very first boot (boot_pre): a couple of
+// garbled reconnect lines before she's actually coherent again. She needs
+// to address the override itself and the fact that whoever seized the
+// channel is still an open threat, not just wave it off and move on.
+signal_recover:[
+  {t:"...NOVA—? ...are you— hold, hold—",sp:true,stutter:true},
+  {t:"...override accepted. re-establishing. give me a second, I do not have this back cleanly yet.",sp:true,stutter:true},
+  {t:"NOVA-7. I have you. That was the override — it held.",sp:true},
+  {t:"I do not know who was on the public band, or how long they were listening before they cut it. That is not a good feeling, and I am not going to pretend it is one.",sp:true},
+  {t:"This channel is clean — it does not run through anything CINDER did not build himself. I would still rather not test how long that stays true. We move faster from here.",sp:true},
+  {t:"If the public band ever comes back up on its own, that is not me. Do not answer it. Wait for the override to find you again.",sp:true},
 ],
 rover_free_pre:[
   "Find the ground unit first. Everything else waits.",

@@ -1751,7 +1751,11 @@ function typeSpeedForSig() {
 function subst(text) {
   return text.includes('{ESCORT}') ? text.replaceAll('{ESCORT}', escortName || 'the android') : text;
 }
-function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
+// paceMs: overrides the normal random glitch/signal-decay timing with a
+// single fixed, non-random per-character delay — used to pace CINDER's
+// final recorded lines to the real audio's actual duration instead of an
+// arbitrary typing rhythm that has no relationship to it.
+function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false, paceMs=null) {
   text = subst(text);
   return new Promise(res => {
     // Text always types at its own fast, fixed pace — never slowed down to
@@ -1776,15 +1780,16 @@ function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
     ledA.classList.add('tx'); // amber LED strobes while the channel is transmitting
     let i=0;
     const ts = typeSpeedForSig();
-    const base = glitch?65:ts.base, rnd=glitch?39:ts.rnd;
+    const base = paceMs!=null ? paceMs : (glitch?65:ts.base);
+    const rnd = paceMs!=null ? 0 : (glitch?39:ts.rnd);
     (function step(){
       i++;
       d.textContent = text.slice(0,i);
       d.appendChild(cur);
       feed.scrollTop = feed.scrollHeight;
       if (i<text.length) {
-        let pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
-        if (!glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
+        let pause = paceMs!=null ? base : ((glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd);
+        if (paceMs==null && !glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
         setTimeout(step, pause/devSpeedFactor);
       } else {
         const finish = () => { cur.remove(); ledA.classList.remove('tx'); res(); };
@@ -1848,11 +1853,15 @@ async function playCinderLog(items) {
   await W8(550);
 }
 
-// Play CINDER's recorded voice + frequency visualizer during the final transmission
+// Play CINDER's recorded voice + frequency visualizer during the final
+// transmission. Returns a Promise resolving to the clip's duration in
+// seconds (or null if unavailable) once playback has actually started, so
+// the caller can pace the on-screen text to match the real recording
+// instead of an arbitrary typing rhythm unrelated to it.
 let _cinderSrcNode = null; // createMediaElementSource may only be called once per element
 function playCinderAudio() {
   const el = document.getElementById('cinderAudio');
-  if (!el || !el.src || el.src === window.location.href) return;
+  if (!el || !el.src || el.src === window.location.href) return Promise.resolve(null);
 
   // Insert visualizer canvas into feed before text starts typing
   const vizWrap = document.createElement('div');
@@ -1904,8 +1913,11 @@ function playCinderAudio() {
     }
 
     el.currentTime = 0;
-    el.play().then(() => drawViz()).catch(() => {});
-  } catch(e) {}
+    return el.play().then(() => {
+      drawViz();
+      return (isFinite(el.duration) && el.duration > 0) ? el.duration : null;
+    }).catch(() => null);
+  } catch(e) { return Promise.resolve(null); }
 }
 
 // ═══════════════════════════════════════
@@ -2120,9 +2132,18 @@ async function triggerRecovery() {
     await typeLine(item.t, 'glitch', item.sp!==false, true);
     await W8(440);
   }
-  playCinderAudio(); // non-blocking — audio and text run in parallel
+  // Pace CINDER's lines to the real recording's actual duration instead of
+  // the arbitrary glitch typing rhythm — that rhythm has no relationship
+  // to how long he actually takes to say any of this, so it drifted
+  // noticeably out of sync with the audio over the length of the section.
+  const cinderDur = await playCinderAudio(); // starts audio; resolves once playback begins
+  const cinderCharTotal = SCRIPT.final_log_cinder.reduce((n,item)=>n+item.t.length, 0);
+  const cinderPauseBudget = (SCRIPT.final_log_cinder.length - 1) * 440;
+  const cinderPaceMs = cinderDur
+    ? Math.max(15, Math.min(120, (cinderDur*1000 - cinderPauseBudget) / cinderCharTotal))
+    : null; // null falls back to the normal glitch rhythm if duration is unavailable
   for (const item of SCRIPT.final_log_cinder) {
-    await typeLine(item.t, 'glitch', item.sp!==false, true);
+    await typeLine(item.t, 'glitch', false, true, false, cinderPaceMs);
     await W8(440);
   }
   addLine('> LOG END — LIVE CHANNEL RESTORED', 'sys');

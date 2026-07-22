@@ -534,8 +534,8 @@ const HELP_HINTS = {
   1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces. If you would rather not puzzle it out, there is a tag hidden behind the trailhead sign at the entrance — scan that instead.",
-  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the shelter and scan the tag there first — that is what opens the window. Once it reads, type FLY.",
-  6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there.",
+  4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the shelter and scan the tag there first — that is what opens the window. Look on the inside of the shelter — check the posts, it may be mounted in a small frame. Once it reads, type FLY.",
+  6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. Look for a 'do not enter' signpost — the tag is on the back of it. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there.",
   // 7 is handled separately below (ON-SITE HELP) — its answer depends on
   // where he is in the biometric gate, which a static string can't express.
 };
@@ -1102,7 +1102,7 @@ free7:[
   "Twelve percent. CINDER spent three days getting that suit up to elevation. The least you can do is go get it.",
   "The GPS coordinates are on your screen. Use them. The cache is at that elevation. It is not far now.",
   "Into the hills. You are almost at the end of something. Keep moving.",
-  "The ammo box code is 3426 — the same one I gave you at the tree.",
+  "The lock at the cache will not open for just anyone. It wants to know it is actually you. When you get there, it will ask.",
   "{ESCORT} is not built for elevation. Neither, apparently, is its enthusiasm. Leave it behind if you have to.",
 ],
 };
@@ -2163,9 +2163,9 @@ async function beginBiometricTest() {
   await W8(600);
   await typeLine("Wait — stop. Before you touch the lock.", 'aria', true, false);
   await W8(400);
-  await typeLine("This is the part CINDER built that I do not fully understand, and I have had three years to think about it. It does not want a code from me. It wants to know it is really you.", 'aria', true, false);
+  await typeLine("This is the part CINDER built that I do not fully understand, and I have had three years to think about it. It is not reading your fingerprints or your pulse — it is reading your answers. He wanted to know that whoever made it this far actually cared enough to answer honestly, not just get the box open.", 'aria', true, false);
   await W8(500);
-  await typeLine("NOVA-7. What is your earliest memory — the first one you actually have, not one someone told you about after?", 'aria', true, false);
+  await typeLine("NOVA-7. First question — this one is the actual identity check. What is your earliest memory? The first one you actually have, not one someone told you about after.", 'aria', true, false);
   awaitingBioMemory = true;
   saveState({});
   document.getElementById('inp').placeholder = 'answer honestly...';
@@ -2556,9 +2556,9 @@ async function submit() {
     await W8(700);
     await typeLine('One more thing while I have you like this. Carbon signal says you have completed another full solar rotation since the last one. Around here that is called a birthday. Happy birthday, NOVA-7.', 'aria', true, false);
     await W8(800);
-    await typeLine('Second verification. Same rule — it has to be true, not clever.', 'aria', true, false);
+    await typeLine("Second question. This one is not really an identity check anymore — the first one already did that job. CINDER added this one for a different reason. He said if someone made it this far, they had earned being asked something real, not just handed a code.", 'aria', true, false);
     await W8(500);
-    await typeLine('What do you believe the meaning of life is?', 'aria', true, false);
+    await typeLine('So, honestly: what do you believe the meaning of life is?', 'aria', true, false);
     awaitingBioMeaning = true;
     saveState({});
     busy=false; enableInput();

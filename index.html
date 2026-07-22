@@ -588,6 +588,10 @@ function devJump(s) {
   sigPct = sigMap[s] ?? 71;
   setSig(sigPct);
   if (STAGE_WAYPOINT[s]) setWaypoint(STAGE_WAYPOINT[s]); else setWaypoint(null);
+  // startGame() hides the GPS badge while the minigame canvas is active and
+  // only the real endGame() restores it — jumping past stage 5 bypasses
+  // that, so restore it defensively here too.
+  document.getElementById('gpsBadge').style.display = '';
   // Matches the chapter marker that plays in real flow at the moment
   // `stage` first becomes s — makes it obvious which narrative point a
   // jump lands you at instead of a silent state change.

@@ -1100,6 +1100,7 @@ free7:[
   "Follow the coordinates. Into the foothills north of the lake. Lee Hill. The ammo box is there.",
   "Twelve percent. CINDER spent three days getting that suit up to elevation. The least you can do is go get it.",
   "The GPS coordinates are on your screen. Use them. The cache is at that elevation. It is not far now.",
+  "When you reach the coordinates, look for the trailhead sign with the trail maps on it. The box is behind that one — not the smaller marker nearby.",
   "Into the hills. You are almost at the end of something. Keep moving.",
   "The lock at the cache will not open for just anyone. It wants to know it is actually you. When you get there, it will ask.",
   "{ESCORT} is not built for elevation. Neither, apparently, is its enthusiasm. Leave it behind if you have to.",
@@ -2663,6 +2664,8 @@ async function submit() {
     await typeLine('Biometric match confirmed. The lock is yours.', 'aria', true, false);
     await W8(450);
     await typeLine('AMMO BOX CODE:  '+SCRIPT.island_combo[0].t, 'hilite', false, false);
+    await W8(450);
+    await typeLine('The box is behind the trailhead sign — the one with the trail maps, not the smaller marker. Reach in behind the panel. Suit is inside.', 'aria', true, false);
     document.getElementById('inp').placeholder = 'transmit to ARIA...';
     saveState({});
     busy=false; enableInput();
@@ -2903,8 +2906,8 @@ async function submit() {
   // here — the BIO_HELP_EXACT guard above catches it first and returns.
   if (stage===7 && isHelpPhrase(val)) {
     const hint = bioComplete
-      ? 'The lock code is '+SCRIPT.island_combo[0].t+'. Open it, put the suit on, then tell me.'
-      : 'The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. When you are actually standing at them, I will know, and there is one more step before the code.';
+      ? 'The lock code is '+SCRIPT.island_combo[0].t+'. The box is behind the trailhead sign — the one with the trail maps on it, not the smaller marker. Reach behind the sign panel itself. Open it, put the suit on, then tell me.'
+      : 'The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. When you get there, find the trailhead sign with the trail maps on it — there is another sign nearby, but the box is behind the map one, tucked behind the panel itself. When you are actually standing at it, I will know, and there is one more step before the code.';
     await typeLine(hint, 'aria', true, false);
     saveState({});
     busy=false; enableInput(); return;

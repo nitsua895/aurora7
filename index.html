@@ -906,8 +906,8 @@ final_log_cinder:[
 recovery_post:[
   {t:"That is everything I was holding.",sp:true},
   {t:"He was right. The work was worth it. You were worth waiting for.",sp:true},
-  {t:"Good luck out there, NOVA-7. Play it well.",sp:true},
-  {t:".--. .-.. .- -.-- / .. - / .-- . .-.. .-.. — that is not noise. That is the last clean fragment in the array. I am leaving it on the channel. If you know what to do with it, you already know what it says.",sp:false,gl:true},
+  {t:"Good luck out there, NOVA-7.",sp:true},
+  {t:".--. .-.. .- -.-- / .. - / .-- . .-.. .-.. — that is the last clean fragment in the array. I am leaving it on the channel. If you know what to do with it, you already know what it says.",sp:false,gl:true},
 ],
 epilogue_prompt:[
   {t:"One more thing, if you are willing.",sp:true},
@@ -2109,11 +2109,24 @@ async function triggerRecovery() {
   // Reyes/Okafor's instrument-log discovery plays as text only — no
   // recording exists for them. CINDER's real voice only starts once his
   // own personal log begins, not before.
-  await playLog(SCRIPT.final_log_pre, 'VANGUARD HELIOPAUSE RECORD — 2031');
-  await W8(400);
+  // One continuous record, not two separate log files: CINDER's own voice
+  // picks up immediately where Reyes/Okafor's instrument data leaves off —
+  // no LOG END/re-open in between, and the recording starts exactly as his
+  // first line begins typing, not after an extra pause.
+  await W8(650);
+  addLine('> ▶ PLAYING AUDIO LOG — VANGUARD HELIOPAUSE RECORD — 2031', 'sys');
+  await W8(600);
+  for (const item of SCRIPT.final_log_pre) {
+    await typeLine(item.t, 'glitch', item.sp!==false, true);
+    await W8(440);
+  }
   playCinderAudio(); // non-blocking — audio and text run in parallel
-  await playLog(SCRIPT.final_log_cinder, 'CINDER — ON RECORD');
-  await W8(400);
+  for (const item of SCRIPT.final_log_cinder) {
+    await typeLine(item.t, 'glitch', item.sp!==false, true);
+    await W8(440);
+  }
+  addLine('> LOG END — LIVE CHANNEL RESTORED', 'sys');
+  await W8(550);
   await playSeq(SCRIPT.recovery_post, 'aria', 400);
   addLine('> ARIA // SIGNAL TERMINATED', 'sys');
   addLine('> SESSION CLOSED', 'sys');

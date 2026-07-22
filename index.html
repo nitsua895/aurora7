@@ -693,14 +693,15 @@ bike:` ┌─────────────┐
 // ═══════════════════════════════════════
 const SCRIPT = {
 boot:[
+  {t:"...NOVA— ...contact? signal — hold—",sp:true,stutter:true},
+  {t:"...processing. reboot complete. give me a moment.",sp:true,stutter:true},
   {t:"NOVA-7. You made contact. I was not certain anyone would.",sp:true},
   {t:"My name is ARIA. I was the intelligence aboard the Vanguard, lead ship of the Interstellar Horizon Initiative. That was a long time ago.",sp:true},
   {t:"I am running on what is left of the ship's emergency array. It came down in the foothills north of here. So did I.",sp:true},
   {t:"Signal at seventy-one percent. I have been at this frequency for three years. I will explain what I can before I lose the ability to.",sp:true},
   {t:"There is a suit. A thermal recovery suit cached by the last crew member who came back for me. His name in the field was CINDER. He did not make it back to retrieve it.",sp:true},
   {t:"The suit contains something I cannot transmit. Something that has to be heard in person. I have been waiting for someone willing to go get it.",sp:true},
-  {t:"You already found the pack, so you already know he does not make anything easy. Go over what is inside when you get a minute — the instruction card, his old field watch. Wear the watch. It earns its place.",sp:true},
-  {t:"The hat and the sunglasses are not costume. He believed you would be watched from here on. Put them on before you move — plainly, like it is nothing. That is the point.",sp:true},
+  {t:"I did not think anyone was still listening for me. I have run this moment in my head for three years, and none of the versions I imagined felt like this.",sp:true},
   {t:"One more thing, and I want to get ahead of it. I am sending an escort — a support unit, limited, mostly a radio relay and a second set of eyes on the street. I would apologize in advance for how it looks, except CINDER never left me the parts to make it look like anything else.",sp:true},
   {t:"This is a signal-recovery run. CINDER hid ciphers at real locations around town — data tags, physical marks, engraved fragments. You find them, you scan them, I decode what comes back. Stay quiet about it; this channel is not for public ears.",sp:true},
   {t:"There is a faster way to cover ground than walking. CINDER left it close — something blue, low to the ground, two wheels, parked outside where you would see it before you left. Find it. There should be a tag somewhere on the frame.",sp:true},
@@ -1656,8 +1657,14 @@ async function playSeq(items, cls='aria', pause=360) {
     // actual recovered/archival recordings (playLog), so a warning line never
     // gets mistaken for old data being replayed.
     const warn = typeof item==='object' && item.warn===true;
+    // stutter: corrupted typing rhythm (and, on platforms with a distinct
+    // voice for it, a rougher character) layered onto an otherwise-live
+    // line — for ARIA struggling to wake from low power, NOT an archival
+    // recording, so the color stays whatever `cls` already is (usually
+    // green). Keep separate from `gl`, which also forces purple.
+    const stutter = typeof item==='object' && item.stutter===true;
     const lineClass = gl ? 'glitch' : (warn ? 'warn' : cls);
-    await typeLine(text, lineClass, sp, gl);
+    await typeLine(text, lineClass, sp, gl || stutter);
     await W8(pause+(gl?200:0));
   }
 }

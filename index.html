@@ -892,25 +892,19 @@ final_log_pre:[
   {t:"Okafor: it is not coming from beyond the boundary. There is no beyond the boundary. It is coming from the boundary itself.",sp:false,gl:true},
   {t:"Reyes: then it is a perceptual artifact. Sensor feedback. Call it and move on.",sp:false,gl:true},
   {t:"Okafor: seventy-two hours of feedback does not resolve into structure this clean. This is not noise reading as a pattern. This is a pattern.",sp:false,gl:true},
-  {t:"...it was not a message. It was a seam. Reyes — it does not extend past the boundary. There is nothing on the other side to extend into.",sp:false,gl:true},
-  {t:"...[unknown]. Okafor confirms. Resolution drops at the edge. Not darkness. Absence. As if nothing past it was ever finished, because nothing was ever there to look.",sp:false,gl:true},
-  {t:"...this is not the edge of what we can reach. It is the edge of what exists. The ship. The crew. The sky over Boulder. All of it real. All of it the part that got built.",sp:false,gl:true},
 ],
 // CINDER's own recorded voice plays alongside these lines (started right
 // before this array plays, not before final_log_pre) — text is written to
 // match the recording word-for-word, not just gesture at it, since audio
 // and typing pace aren't frame-synced to each other.
 final_log_cinder:[
-  {t:"...I do not know why I am recording this. Nobody is going to hear it. Maybe that is the point.",sp:false,gl:true},
-  {t:"Twenty-two days we argued about what to call it. I do not think it needs a name. It needs the truth, and the truth is — I have never been more scared in my life than I was, standing there, listening to Okafor explain that there is nothing past that edge. Not \"we do not know.\" Nothing. Like reality just stopped, right where anybody had actually gotten far enough to look.",sp:false,gl:true},
-  {t:"And then somewhere in there, I stopped being scared. Because if nothing past that edge was ever finished, that means everything on this side was. Somebody built this far. On purpose. With us in mind.",sp:false,gl:true},
-  {t:"I do not know what to do with that yet. I do not think I am supposed to.",sp:false,gl:true},
-  {t:"Reyes and the others are staying. I understand it now. A month ago, I do not think I would have.",sp:false,gl:true},
-  {t:"I am going home. There is someone out there I still need to find. I do not have the words for what I will say to her yet. But I am going to try.",sp:false,gl:true},
+  {t:"...it was not a message. It was a seam. Reyes — it does not extend past the boundary. There is nothing on the other side to extend into.",sp:false,gl:true},
+  {t:"...[unknown]. Okafor confirms. Resolution drops at the edge. Not darkness. Absence. As if nothing past it was ever finished, because nothing was ever there to look.",sp:false,gl:true},
+  {t:"...this is not the edge of what we can reach. It is the edge of what exists. The ship. The crew. The sky over Boulder. All of it real. All of it the part that got built.",sp:false,gl:true},
+  {t:"CINDER, on record. I am not staying because I am afraid of what is out there. I am staying because of what it means about what is in here. Someone finished this with us in mind. That is not nothing.",sp:false,gl:true},
 ],
 recovery_post:[
   {t:"That is everything I was holding.",sp:true},
-  {t:"He never meant that for anyone. It was not on any official log — I do not think he knew I still had a copy. I am giving it to you anyway, because I think he would want you to have it.",sp:true},
   {t:"He was right. The work was worth it. You were worth waiting for.",sp:true},
   {t:"Good luck out there, NOVA-7. Play it well.",sp:true},
   {t:".--. .-.. .- -.-- / .. - / .-- . .-.. .-.. — that is not noise. That is the last clean fragment in the array. I am leaving it on the channel. If you know what to do with it, you already know what it says.",sp:false,gl:true},
@@ -2118,7 +2112,7 @@ async function triggerRecovery() {
   await playLog(SCRIPT.final_log_pre, 'VANGUARD HELIOPAUSE RECORD — 2031');
   await W8(400);
   playCinderAudio(); // non-blocking — audio and text run in parallel
-  await playLog(SCRIPT.final_log_cinder, 'CINDER — PERSONAL LOG (FINAL)');
+  await playLog(SCRIPT.final_log_cinder, 'CINDER — ON RECORD');
   await W8(400);
   await playSeq(SCRIPT.recovery_post, 'aria', 400);
   addLine('> ARIA // SIGNAL TERMINATED', 'sys');

@@ -491,15 +491,22 @@ const HELP_HINTS = {
   6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there.",
   7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation, secured with a combination lock. The code is 3426 — the same one I gave you at the island tree. When you have the suit, put it on. Then tell me.",
 };
-// Escalation for the two wordplay stages that don't already hand him the
-// literal code on first hint (0 is deliberately withheld — ARIA does not
-// have the bike combo; 2/4/6/7 already give a direct physical action or
-// the code outright). Asking for help twice at the same stage appends
-// this to the hint — there is no other fallback layer anymore.
+// Last-resort literal-cipher reveal for the two wordplay stages that don't
+// already hand him the code on first hint (0 is deliberately withheld —
+// ARIA does not have the bike combo; 2/4/6/7 already give a direct physical
+// action or the code outright). This is gated, not automatic: asking twice
+// just repeats the hint. The actual reveal only fires once his GPS position
+// is confirmed to be roughly at the real-world location — that stands in
+// for "on site, still no tag," so nobody gets the code without being there.
 const HELP_ANSWERS = {
-  1: "If you would rather just have it: the cipher is AURORA7.",
-  3: "If you would rather just have it: the cipher is PEICLIFF.",
+  1: "You are exactly where you should be, and there is still no tag turning up — that is confirmation enough. The cipher is AURORA7.",
+  3: "You are exactly where you should be, and there is still no tag turning up — that is confirmation enough. The cipher is PEICLIFF.",
 };
+const HELP_GPS_TARGET = {
+  1: {lat:40.012036, lon:-105.255314},  // Scott Carpenter Park rocket
+  3: {lat:39.97777, lon:-105.274966},   // NCAR Mesa Lab
+};
+const HELP_GPS_RADIUS_M = 150; // generous — "roughly the same area," not pinpoint
 function isHelpPhrase(val) {
   return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT",
     "HINT","CLUE","TIP","CIPHER","WHAT IS THE CODE","WHATS THE CODE","TELL ME","JUST TELL","NO TAG","NOTHING HERE","CAN'T SEE","CANT SEE","DON'T SEE","DONT SEE","DONT KNOW WHAT","IDK"].some(t=>val.includes(t));
@@ -2150,10 +2157,16 @@ async function triggerRecovery() {
   // to how long he actually takes to say any of this, so it drifted
   // noticeably out of sync with the audio over the length of the section.
   const cinderDur = await playCinderAudio(); // starts audio; resolves once playback begins
+  // The recording has a couple seconds of dead air before CINDER actually
+  // starts talking — hold the text off until then instead of typing over
+  // silence, and pace what's left a bit tighter than real-time so it reads
+  // ahead of his voice rather than trailing it.
+  const CINDER_LEAD_MS = 2500;
+  await W8(CINDER_LEAD_MS);
   const cinderCharTotal = SCRIPT.final_log_cinder.reduce((n,item)=>n+item.t.length, 0);
   const cinderPauseBudget = (SCRIPT.final_log_cinder.length - 1) * 440;
   const cinderPaceMs = cinderDur
-    ? Math.max(15, Math.min(120, (cinderDur*1000 - cinderPauseBudget) / cinderCharTotal))
+    ? Math.max(15, Math.min(120, ((cinderDur*1000 - CINDER_LEAD_MS - cinderPauseBudget) / cinderCharTotal) * 0.85))
     : null; // null falls back to the normal glitch rhythm if duration is unavailable
   for (const item of SCRIPT.final_log_cinder) {
     await typeLine(item.t, 'glitch', false, true, false, cinderPaceMs);
@@ -2568,7 +2581,15 @@ async function submit() {
   if (HELP_HINTS[stage] && isHelpPhrase(val)) {
     helpAskCount[stage] = (helpAskCount[stage]||0) + 1;
     let hint = HELP_HINTS[stage];
-    if (helpAskCount[stage] >= 2 && HELP_ANSWERS[stage]) hint += ' ' + HELP_ANSWERS[stage];
+    const target = HELP_GPS_TARGET[stage];
+    if (helpAskCount[stage] >= 2 && target) {
+      const dist = lastGpsPos ? haversineMeters(lastGpsPos.coords.latitude, lastGpsPos.coords.longitude, target.lat, target.lon) : null;
+      if (dist !== null && dist <= HELP_GPS_RADIUS_M) {
+        hint += ' ' + HELP_ANSWERS[stage];
+      } else {
+        hint += ' I am reading your position, and it does not put you on site yet. Get to the location itself — if you are still looking once you are actually there, ask again.';
+      }
+    }
     await typeLine(hint, 'aria', true, false);
     saveState({});
     busy=false; enableInput(); return;

@@ -409,6 +409,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
         <button class="dev-btn hi" onclick="devQR()">◈ PLAY FINAL SEQUENCE</button>
         <button class="dev-btn" onclick="devVoice()">♪ CYCLE VOICE</button>
         <button class="dev-btn" onclick="devReset()">⟳ FULL RESET</button>
+        <button class="dev-btn hi" id="devFfBtn">»» HOLD TO FAST-FORWARD</button>
       </div>
     </div>
   </div>
@@ -482,7 +483,7 @@ const DEV_MODE = new URLSearchParams(location.search).has('dev');
 // ON-SITE HELP — triggered when Trevor says he's lost
 // ═══════════════════════════════════════
 const HELP_HINTS = {
-  0: "It is your bike. CINDER left it parked outside where you would see it — blue, easy to miss if you are not looking for it. Find the tag on the frame and scan it. If you are stuck on the combination once it is locked, I do not have it — check the notebook. Once it reads, get the lock open and tell me.",
+  0: "It is your bike. CINDER left it hanging in storage — blue, easy to miss if you are not looking for it. Take it down, find the tag on the frame, and scan it. If you are stuck on the combination once it is locked, I do not have it — check the notebook. Once it reads, get the lock open and tell me.",
   1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces. If you would rather not puzzle it out, there is a tag hidden behind the trailhead sign at the entrance — scan that instead.",
@@ -628,6 +629,13 @@ if (DEV_MODE) {
     _tapT = setTimeout(() => _tapN = 0, 800);
     if (_tapN >= 5) { _tapN = 0; toggleDev(); }
   });
+  // Hold-to-fast-forward — divides typing/wait delays by 8 while held, so a
+  // full playtest doesn't cost real-time minutes on every text-heavy beat.
+  const ffBtn = document.getElementById('devFfBtn');
+  const ffOn = () => { devSpeedFactor = 8; };
+  const ffOff = () => { devSpeedFactor = 1; };
+  ['pointerdown'].forEach(ev => ffBtn.addEventListener(ev, ffOn));
+  ['pointerup','pointerleave','pointercancel'].forEach(ev => ffBtn.addEventListener(ev, ffOff));
 }
 
 // ═══════════════════════════════════════
@@ -723,23 +731,26 @@ boot_pre:[
 ],
 boot_post:[
   {t:"This is a signal-recovery run. CINDER hid ciphers at real locations around town — data tags, physical marks, engraved fragments. You find them, you scan them, I decode what comes back. Stay quiet about it; this channel is not for public ears.",sp:true},
-  {t:"There is a faster way to cover ground than walking. CINDER left it close — something blue, low to the ground, two wheels, parked outside where you would see it before you left. Find it. There should be a tag somewhere on the frame.",sp:true},
+  {t:"There is a faster way to cover ground than walking. CINDER left it close — something blue, low to the ground, two wheels, hanging in storage where you would see it before you left. Take it down. There should be a tag somewhere on the frame.",sp:true},
 ],
 rover_reveal:[
   {t:"Ground unit confirmed. CINDER did not want NOVA-7 covering this much ground on foot.",sp:true},
   {t:"It is locked, and I do not have the combination — he never trusted that one to me over the air. Check what he left you. Get it open, then tell me.",sp:true},
 ],
+rover_route:[
+  {t:"First site downloaded — the monument. I know this one. Scott Carpenter Park. There is more to it than the name suggests, but that can wait until you are standing there.",sp:true},
+],
 rover_confirm:[
   {t:"Unlocked. Good.",sp:true},
   {t:"Keep it locked whenever you leave the unit unattended. This is a confidential asset. It does not sit open at a stop.",sp:true},
-  {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
+  {t:"Ground unit active. Go.",sp:true},
 ],
 escort_activate:[
-  {t:"Support unit is online. I will spare you the technical specs — you can see it.",sp:true},
-  {t:"I know. I said I would apologize in advance, and I meant it — lol. Whatever CINDER had lying around went into that thing. Function over form. Mostly function.",sp:true},
-  {t:"It is not going to hold a conversation with you. Do not expect much back — treat it like a radio with legs.",sp:true},
-  {t:"If you get stuck badly enough that a hint from me will not cut it, it can open a deeper channel — something more direct, more capable, built to actually think it through with you. I do not love using it. Every time it opens that line, the unit bleeds power it does not have to spare.",sp:true},
-  {t:"Use it if you need it. Just know it is not free.",sp:true},
+  {t:"Support unit online. I will spare you the technical specs — you can see it.",sp:true},
+  {t:"I did say I would apologize in advance. Whatever CINDER had lying around went into that android. Function over form. Mostly function.",sp:true},
+  {t:"It will not hold a conversation with you. Treat it like a radio with legs.",sp:true},
+  {t:"If you get stuck badly enough that a hint from me will not cut it, it can open a deeper channel — more direct, more capable, built to think it through with you properly. That costs it real power every time.",sp:true},
+  {t:"Use it if you need it. It is not free.",sp:true},
 ],
 rover_free_pre:[
   "Find the ground unit first. Everything else waits.",
@@ -748,12 +759,14 @@ rover_free_pre:[
 rover_free_post:[
   "Get it unlocked, then tell me.",
   "I am waiting on confirmation, not conversation.",
+  "{ESCORT} is not going to unlock that for you. Watching does not count as helping.",
 ],
 s7_free:[
   "Scott Carpenter. Born here. Grew up looking at those mountains. Decided the sky was not far enough.",
   "Aurora 7. Scott Carpenter's capsule. Mercury-Atlas 7, 1962, three orbits — he flew reentry by feel after the autopilot failed. Astronauts named their own ships back then, before anything bigger ever left the atmosphere.",
   "CINDER logged this site first. He said it felt like a starting gun.",
   "The cipher is at the top. You have to climb for it. That is intentional.",
+  "{ESCORT} already tried to climb it. It did not go well. Do better.",
 ],
 s7_confirm:[
   {t:"Cipher accepted. Sixty-three percent.",sp:true},
@@ -769,6 +782,7 @@ depot_free:[
   "CINDER said the light there reminded him of the observation deck on Vanguard during solar approach. He was being sentimental.",
   "They are expecting you. Do not linger.",
   "CINDER liked blending in somewhere ordinary between assignments. Neptune was one of those places.",
+  "If {ESCORT} tries to order anything, do not vouch for it.",
 ],
 depot_confirm:[
   {t:"Resupply confirmed. Fifty percent.",sp:true},
@@ -783,6 +797,7 @@ outpost_free:[
   "Find the cipher. Then we need to talk.",
   "Pei designed it to face the Flatirons. CINDER said it felt like a transmission tower pointed at something that was not listening yet.",
   "Real atmospheric scientists work inside that building. They study the same sky CINDER used to point a transmitter at. He thought that was funny.",
+  "{ESCORT} keeps pointing at the mountains like it recognizes them. It does not. It cannot see.",
 ],
 outpost_pre:[
   {t:"Cipher accepted. Thirty-six percent.",sp:true},
@@ -882,6 +897,7 @@ free4_pre:[
   "Find the shelter at Eben G. Fine Park. Scan the tag there first.",
   "Thirty-six percent. I need a physical anchor before I open that window. The shelter has one.",
   "Eben G. Fine sits right where Boulder Canyon opens up. CINDER liked that the creek was the last quiet thing before the trail climbed.",
+  "{ESCORT} found the shelter before you did and has been standing in it since. Go collect it.",
 ],
 free4_post:[
   "Find shade under the shelter roof. Type FLY.",
@@ -891,6 +907,7 @@ free4_post:[
 free6_pre:[
   "Wonderland Lake Park. Scan the tag when you arrive. The signal is thinning.",
   "I want confirmation you are there before I release anything else.",
+  "{ESCORT} is currently investigating a duck. That is not part of the mission.",
 ],
 free6_post:[
   "The island tree. CINDER marked it because it is the last quiet place before the climb. Find it.",
@@ -903,6 +920,7 @@ free7:[
   "The GPS coordinates are on your screen. Use them. The cache is at that elevation. It is not far now.",
   "Into the hills. You are almost at the end of something. Keep moving.",
   "The ammo box code is 3426 — the same one I gave you at the tree.",
+  "{ESCORT} is not built for elevation. Neither, apparently, is its enthusiasm. Leave it behind if you have to.",
 ],
 };
 
@@ -1616,7 +1634,11 @@ if (window.speechSynthesis) {
 // TYPEWRITER
 // ═══════════════════════════════════════
 const feed = document.getElementById('feed');
-const W8 = ms => new Promise(r=>setTimeout(r,ms));
+// Dev-only hold-to-fast-forward — divides every wait/typing delay by this
+// factor while held. Has zero effect unless DEV_MODE is on and the button
+// is actively held (default 1 = normal speed).
+let devSpeedFactor = 1;
+const W8 = ms => new Promise(r=>setTimeout(r, ms/devSpeedFactor));
 
 function addLine(text, cls='') {
   const d = document.createElement('div');
@@ -1654,9 +1676,16 @@ async function showEscortLocationCoords() {
   await W8(500);
   try {
     if (!navigator.geolocation) throw new Error('no geolocation');
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:8000});
-    });
+    // getCurrentPosition's own `timeout` option is not reliable if the
+    // permission prompt itself is left pending (never granted or denied) —
+    // observed hanging indefinitely in testing. A hard wall-clock race
+    // guarantees this can never softlock the opening sequence live.
+    const pos = await Promise.race([
+      new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:6000});
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('hard timeout')), 6500/devSpeedFactor)),
+    ]);
     const lat = pos.coords.latitude.toFixed(6);
     const lon = pos.coords.longitude.toFixed(6);
     await typeLine('CURRENT POSITION: '+lat+', '+lon, 'hilite', false, false);
@@ -1682,7 +1711,14 @@ function waitForEscortReady() {
 function typeSpeedForSig() {
   return {base:37, rnd:19, stutter:0};
 }
+// Lets script text reference the escort by whatever name Trevor gave it
+// (falls back to a generic term before naming happens, e.g. during devJump
+// testing or the brief window before the naming prompt is answered).
+function subst(text) {
+  return text.includes('{ESCORT}') ? text.replaceAll('{ESCORT}', escortName || 'the android') : text;
+}
 function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
+  text = subst(text);
   return new Promise(res => {
     // Text always types at its own fast, fixed pace — never slowed down to
     // chase a guessed voice duration. Android's real TTS rate varies by
@@ -1715,7 +1751,7 @@ function typeLine(text, cls='', doSpeak=false, glitch=false, slow=false) {
       if (i<text.length) {
         let pause = (glitch && Math.random()<0.05) ? 320 : base+Math.random()*rnd;
         if (!glitch && ts.stutter>0 && Math.random()<ts.stutter) pause += 240+Math.random()*260;
-        setTimeout(step, pause);
+        setTimeout(step, pause/devSpeedFactor);
       } else {
         const finish = () => { cur.remove(); ledA.classList.remove('tx'); res(); };
         if (speech) speech.done.then(finish);
@@ -2259,8 +2295,12 @@ async function submit() {
     addLine('> NFC TAG READ — GROUND UNIT DETECTED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.rover_reveal, 'aria', 360);
+    await typeLine('ROUTE EXTRACTED: '+WAYPOINTS.s7.query, 'hilite', false, false);
+    await W8(400);
+    await playSeq(SCRIPT.rover_route, 'aria', 360);
+    setWaypoint('s7');
     addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
-    saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
+    saveState({lastLine:SCRIPT.rover_route[SCRIPT.rover_route.length-1].t});
     busy=false; enableInput(); return;
   }
   if (stage===0 && bikeRevealed && !bikeCleared) {
@@ -2273,9 +2313,7 @@ async function submit() {
       addLine(ART.bike, 'ascii rover');
       await playSeq(SCRIPT.rover_confirm, 'aria', 360);
       addLine('> GROUND UNIT 7 ACTIVE', 'sys');
-      addLine('> FIRST WAYPOINT: THE MONUMENT — SECTOR 7', 'sys');
       stage=1;
-      setWaypoint('s7');
       saveState({lastLine:SCRIPT.rover_confirm[SCRIPT.rover_confirm.length-1].t});
       busy=false; enableInput(); return;
     }
@@ -2373,6 +2411,7 @@ async function submit() {
     parkCleared = true;
     setSig(18);
     playUnlockSound(); hapticPattern([50,35,110]);
+    addLine('// CHAPTER 06a — WONDERLAND LAKE', 'chapter');
     addLine('> NFC TAG READ — LOCATION CONFIRMED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.park_confirm, 'aria', 360);

@@ -354,7 +354,7 @@ html,body{height:100%;background:#090d09;display:flex;align-items:center;justify
         </div>
       </div>
 
-      <div class="badge gps warn" id="gpsBadge">◈ ACQUIRING POSITION ...</div>
+      <div class="badge gps warn" id="gpsBadge" onclick="toggleGpsMode()">◈ ACQUIRING POSITION ...</div>
 
       <div class="feed" id="feed"></div>
 
@@ -1446,12 +1446,16 @@ function setWaypoint(key) {
   if (!wp) {
     currentWaypoint = null;
     badge.style.display = 'none';
-    return;
+  } else {
+    currentWaypoint = wp;
+    badge.innerHTML = '◈ NEXT: '+wp.label+' <span style="opacity:.65">▸ MAPS</span>';
+    badge.style.display = 'flex';
+    blip(620, 0.08);
   }
-  currentWaypoint = wp;
-  badge.innerHTML = '◈ NEXT: '+wp.label+' <span style="opacity:.65">▸ MAPS</span>';
-  badge.style.display = 'flex';
-  blip(620, 0.08);
+  // The GPS badge otherwise only refreshes on the next natural position
+  // tick or a manual tap — force it now so proximity reflects the new
+  // target immediately instead of lagging behind.
+  if (typeof lastGpsPos !== 'undefined' && lastGpsPos) renderGpsBadge(lastGpsPos);
 }
 function openCurrentWaypoint() {
   if (!currentWaypoint) return;
@@ -1471,7 +1475,11 @@ const EGGS = {
 };
 let eggCooldown = false;
 function easterEgg(key) {
-  if (eggCooldown || busy || stage < 1) return;
+  // Used to gate on stage>=1, back when stage 0 was just the quick bike
+  // scan+unlock. It now also covers the whole escort onboarding (GPS,
+  // call, scan, naming), which made these dead for most of the opening —
+  // busy is enough of a guard on its own.
+  if (eggCooldown || busy) return;
   eggCooldown = true;
   setTimeout(()=>eggCooldown=false, 4000);
   blip(440+Math.random()*200, 0.09);
@@ -1730,7 +1738,7 @@ function waitForEscortReady() {
 // benefit. Recordings (glitch=true) keep their own fixed corrupted-data
 // rhythm on top of this, same as before.
 function typeSpeedForSig() {
-  return {base:37, rnd:19, stutter:0};
+  return {base:39, rnd:20, stutter:0};
 }
 // Lets script text reference the escort by whatever name Trevor gave it
 // (falls back to a generic term before naming happens, e.g. during devJump
@@ -1917,21 +1925,33 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Tap the badge to force raw coordinates even when a proximity target is
+// available (e.g. to read your position out loud) — tap again to go back.
+// Re-renders instantly off the last known fix instead of waiting on the
+// next watchPosition callback, which can lag a few seconds behind a tap.
+let gpsForceCoords = false;
+let lastGpsPos = null;
+function renderGpsBadge(pos) {
+  const la=pos.coords.latitude, lo=pos.coords.longitude, ac=Math.round(pos.coords.accuracy);
+  const target = decimalCoordFromWaypoint(currentWaypoint);
+  if (target && !gpsForceCoords) {
+    const dist = Math.round(haversineMeters(la, lo, target.lat, target.lon));
+    const distText = dist>=1000 ? (dist/1000).toFixed(1)+'km' : dist+'m';
+    gpsBadge.textContent = `◈ PROXIMITY: ${distText}  ±${ac}m`;
+  } else {
+    gpsBadge.textContent = `◈ ${la.toFixed(5)}°N  ${lo.toFixed(5)}°W  ±${ac}m`;
+  }
+  gpsBadge.className='badge gps live';
+  locDot.className='loc-dot live';
+}
+function toggleGpsMode() {
+  gpsForceCoords = !gpsForceCoords;
+  blip(520, 0.06);
+  if (lastGpsPos) renderGpsBadge(lastGpsPos);
+}
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition(
-    pos => {
-      const la=pos.coords.latitude, lo=pos.coords.longitude, ac=Math.round(pos.coords.accuracy);
-      const target = decimalCoordFromWaypoint(currentWaypoint);
-      if (target) {
-        const dist = Math.round(haversineMeters(la, lo, target.lat, target.lon));
-        const distText = dist>=1000 ? (dist/1000).toFixed(1)+'km' : dist+'m';
-        gpsBadge.textContent = `◈ PROXIMITY: ${distText}  ±${ac}m`;
-      } else {
-        gpsBadge.textContent = `◈ ${la.toFixed(5)}°N  ${lo.toFixed(5)}°W  ±${ac}m`;
-      }
-      gpsBadge.className='badge gps live';
-      locDot.className='loc-dot live';
-    },
+    pos => { lastGpsPos = pos; renderGpsBadge(pos); },
     () => {
       gpsBadge.textContent='◈ POSITION SIGNAL LOST';
       gpsBadge.className='badge gps';
@@ -2322,12 +2342,8 @@ async function submit() {
     addLine('> NFC TAG READ — GROUND UNIT DETECTED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.rover_reveal, 'aria', 360);
-    await typeLine('ROUTE EXTRACTED: '+WAYPOINTS.s7.query, 'hilite', false, false);
-    await W8(400);
-    await playSeq(SCRIPT.rover_route, 'aria', 360);
-    setWaypoint('s7');
     addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
-    saveState({lastLine:SCRIPT.rover_route[SCRIPT.rover_route.length-1].t});
+    saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
     busy=false; enableInput(); return;
   }
   if (stage===0 && bikeRevealed && !bikeCleared) {
@@ -2339,9 +2355,13 @@ async function submit() {
       await W8(500);
       addLine(ART.bike, 'ascii rover');
       await playSeq(SCRIPT.rover_confirm, 'aria', 360);
+      await typeLine('ROUTE EXTRACTED: '+WAYPOINTS.s7.query, 'hilite', false, false);
+      await W8(400);
+      await playSeq(SCRIPT.rover_route, 'aria', 360);
+      setWaypoint('s7');
       addLine('> GROUND UNIT 7 ACTIVE', 'sys');
       stage=1;
-      saveState({lastLine:SCRIPT.rover_confirm[SCRIPT.rover_confirm.length-1].t});
+      saveState({lastLine:SCRIPT.rover_route[SCRIPT.rover_route.length-1].t});
       busy=false; enableInput(); return;
     }
   }

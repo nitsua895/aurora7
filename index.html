@@ -463,7 +463,7 @@ const GAME_MUSIC_B64="UklGRsxDRABXQVZFZm10IBAAAAABAAIARKwAABCxAgAEABAAZGF0YahDRA
 // ═══════════════════════════════════════
 // GATE CODES
 // ═══════════════════════════════════════
-const CODES = { ROVER:'ROVER', S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', SHELTER:'CLEARANCE', CONTINUES:'RETRY', PARK:'WONDERLAND', ISLAND:'ISLAND' };
+const CODES = { ROVER:'ROVER', S7:'AURORA7', DEPOT:'RESUPPLY', OUTPOST:'PEICLIFF', SHELTER:'CLEARANCE', CONTINUES:'RETRY', PARK:'WONDERLAND', ISLAND:'ISLAND', ESCORT:'ACTIVATE' };
 // Which stage each real-world code/cipher belongs to — lets a scanned tag
 // that doesn't apply right now get an honest "ahead of you" / "already
 // read" response instead of falling through to unrelated flavor text.
@@ -686,6 +686,22 @@ bike:` ┌─────────────┐
  └──────┬───────┘
     o══════════o
    ( )        ( )`,
+android:`      ┌─────┐
+      │ ◉ ◉ │
+      │  ▽  │
+      └──┬──┘
+    ┌─────┴─────┐
+    │  SUPPORT  │
+    │   UNIT    │
+    └─────┬─────┘
+     ┌────┴────┐
+     │         │
+   ──┤         ├──
+     │         │
+     └────┬────┘
+         ┌┴┐
+         │ │
+        ─┴─┴─`,
 };
 
 // ═══════════════════════════════════════
@@ -717,6 +733,13 @@ rover_confirm:[
   {t:"Unlocked. Good.",sp:true},
   {t:"Keep it locked whenever you leave the unit unattended. This is a confidential asset. It does not sit open at a stop.",sp:true},
   {t:"Your ground unit is active. The first site is the monument. A Boulder native left from there in 1962 and did not come back the same. Start there.",sp:true},
+],
+escort_activate:[
+  {t:"Support unit is online. I will spare you the technical specs — you can see it.",sp:true},
+  {t:"I know. I said I would apologize in advance, and I meant it — lol. Whatever CINDER had lying around went into that thing. Function over form. Mostly function.",sp:true},
+  {t:"It is not going to hold a conversation with you. Do not expect much back — treat it like a radio with legs.",sp:true},
+  {t:"If you get stuck badly enough that a hint from me will not cut it, it can open a deeper channel — something more direct, more capable, built to actually think it through with you. I do not love using it. Every time it opens that line, the unit bleeds power it does not have to spare.",sp:true},
+  {t:"Use it if you need it. Just know it is not free.",sp:true},
 ],
 rover_free_pre:[
   "Find the ground unit first. Everything else waits.",
@@ -894,6 +917,9 @@ let freeIdx = {};
 let awaitingReflection = false;
 // Sub-gates within stage 0 (ground rover) and stage 4/6 (physical NFC anchors)
 let bikeRevealed = false, bikeCleared = false, shelterCleared = false, parkCleared = false;
+let escortActivated = false; // not stage-gated — the escort can show up whenever
+let awaitingEscortName = false;
+let escortName = null;
 
 function getFree(pool, key) {
   freeIdx[key] = ((freeIdx[key]||0)+1) % pool.length;
@@ -908,7 +934,7 @@ function saveState(extra={}) {
     const feedLines = Array.from(feed.children)
       .slice(-200)
       .map(d=>({t:d.textContent, c:d.className.replace(/^line\s*/,'').trim()}));
-    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, ...extra}));
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortName, ...extra}));
   } catch(e){}
 }
 function loadState() {
@@ -1619,6 +1645,35 @@ function waitForTap(label, tel) {
   });
 }
 
+// Live GPS fix, displayed right before the escort call — sells "you are
+// homing its location yourself" and is genuinely useful for the person
+// receiving that call. Falls back gracefully (denied permission, no fix,
+// desktop testing) instead of hanging or throwing.
+async function showEscortLocationCoords() {
+  addLine('> ACQUIRING GPS FIX ...', 'sys');
+  await W8(500);
+  try {
+    if (!navigator.geolocation) throw new Error('no geolocation');
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:8000});
+    });
+    const lat = pos.coords.latitude.toFixed(6);
+    const lon = pos.coords.longitude.toFixed(6);
+    await typeLine('CURRENT POSITION: '+lat+', '+lon, 'hilite', false, false);
+  } catch(e) {
+    addLine('> GPS FIX UNAVAILABLE — TRANSMITTING LAST KNOWN SECTOR ONLY', 'sys');
+  }
+}
+
+// Boot pauses on this until the escort's own tag gets scanned and named —
+// resolved from inside submit()'s awaitingEscortName handler once the name
+// is locked in. A plain resolver instead of polling since it's driven by a
+// couple of separate submit() calls, not a single DOM event.
+let _escortReadyResolve = null;
+function waitForEscortReady() {
+  return new Promise(resolve => { _escortReadyResolve = resolve; });
+}
+
 // Flat typing pace regardless of signal strength — the Android TTS engine
 // that actually voices these lines can't be slowed down to match a decaying
 // signal, so tying text speed to sigPct just desyncs voice and text for no
@@ -1849,6 +1904,9 @@ async function boot() {
     bikeCleared = saved.bikeCleared || false;
     shelterCleared = saved.shelterCleared || false;
     parkCleared = saved.parkCleared || false;
+    escortActivated = saved.escortActivated || false;
+    escortName = saved.escortName || null;
+    awaitingEscortName = saved.awaitingEscortName || false;
     setSig(sigPct);
     if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
     if (saved.feedLines && saved.feedLines.length) {
@@ -1858,6 +1916,7 @@ async function boot() {
     addLine('> SIGNAL REACQUIRED — CONTINUING SESSION', 'sys');
     await W8(400);
     addLine('> channel live. continue, NOVA-7.', 'sys');
+    if (awaitingEscortName) document.getElementById('inp').placeholder = 'name the unit...';
     busy = false;
     enableInput();
     checkQrUnlock();
@@ -1877,7 +1936,19 @@ async function boot() {
   addLine('// CHAPTER 01 — FIRST CONTACT', 'chapter');
   await W8(700);
   await playSeq(SCRIPT.boot_pre, 'aria', 520);
+  await showEscortLocationCoords();
   await waitForTap('HOME ANDROID LOCATION', '8594865042');
+
+  // Hand control back so the escort's own NFC scan (and the naming prompt
+  // it triggers) can actually reach submit() — busy stays true for the
+  // rest of this function otherwise and blocks every incoming scan.
+  addLine('> SCAN THE SUPPORT UNIT TAG TO CONTINUE', 'sys');
+  busy = false;
+  enableInput();
+  await waitForEscortReady();
+  busy = true;
+  disableInput();
+
   await playSeq(SCRIPT.boot_post, 'aria', 520);
   addLine('> LOCATE YOUR GROUND ROVER', 'sys');
   addLine('> SCAN ON CONTACT — KEEP THIS SCREEN OPEN WHILE YOU SCAN', 'sys');
@@ -2122,6 +2193,20 @@ async function submit() {
     return;
   }
 
+  if (awaitingEscortName) {
+    awaitingEscortName = false;
+    escortName = raw.slice(0, 24) || 'UNIT';
+    document.getElementById('inp').placeholder = 'transmit to ARIA...';
+    await typeLine('Logged. '+escortName+' it is.', 'aria', true, false);
+    saveState({escortName});
+    busy=false; enableInput();
+    // If boot() is paused waiting on this (the first-contact flow), let it
+    // continue into boot_post. Outside that flow (a later re-scan) this is
+    // null and there's nothing to resume.
+    if (_escortReadyResolve) { _escortReadyResolve(); _escortReadyResolve = null; }
+    return;
+  }
+
   if (DEV_MODE && val === 'DEV') { busy=false; enableInput(); toggleDev(); return; }
 
   // ARCADE replay — available after completing the satellite approach
@@ -2134,6 +2219,34 @@ async function submit() {
     await W8(400);
     startGame(true);
     busy = false;
+    return;
+  }
+
+  // ESCORT ANDROID — not stage-gated, since in real play the escort shows
+  // up whenever the "HOME ANDROID LOCATION" call lands and they physically
+  // meet up. One-time boot sequence + ASCII reveal.
+  if (val === CODES.ESCORT && !escortActivated) {
+    escortActivated = true;
+    addLine('> NFC TAG READ — SUPPORT UNIT DETECTED', 'sys');
+    await W8(500);
+    addLine('> SUPPORT UNIT — POWER ON', 'sys');
+    await W8(500);
+    addLine('> CALIBRATING SERVOS ...', 'sys');
+    await W8(700);
+    fireGlitchBurst(document.querySelector('.crt-wrap'));
+    addLine('> VISUAL SYSTEMS ONLINE', 'sys');
+    await W8(500);
+    playUnlockSound(); hapticPattern([40,30,40,30,120]);
+    addLine(ART.android, 'ascii');
+    await W8(600);
+    addLine('> UNIT ACTIVE', 'sys');
+    await W8(400);
+    await playSeq(SCRIPT.escort_activate, 'aria', 380);
+    await typeLine('The ground unit already has a designation. This one does not. Name it, and I will log it — that is what we call it from here on.', 'aria', true, false);
+    awaitingEscortName = true;
+    saveState({lastLine:'awaiting escort name'});
+    busy=false; enableInput();
+    document.getElementById('inp').placeholder = 'name the unit...';
     return;
   }
 

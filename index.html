@@ -951,14 +951,17 @@ s7_confirm:[
   {t:"He found me three years ago — eleven minutes on a closing comms window, long enough to confirm the suit and where he cached it. He said four days. He did not come back.",sp:true},
   {t:"Before he went dark, he left an emergency backup — one contingency, off every official channel, with your designation on it. Command would call it a breach. He called it insurance. You were always the one it named.",sp:true},
   {t:"He spoke to me like a person, not a system. I am trusting you because he would have. Finish this.",sp:true},
-  {t:"Proceed to Neptune Café. Someone is holding something for you.",sp:true},
+  {t:"Proceed to Neptune Café. The staff there are holding an envelope for you — tell them you are collecting for NOVA-7 and it is yours.",sp:true},
+  {t:"Before you open it, order yourself a drink. It is already covered — I moved some cryptocurrency nobody was watching closely enough onto your tab. Call it a mission expense. You do have to ask for it at the counter, though. It will not walk over to you.",sp:true},
+  {t:"And get {ESCORT} a matcha. Do not ask me why it wants one — it is partial to anything green. Bring it one and it will settle down.",sp:true},
 ],
 depot_free:[
   "Neptune Café. Use the recognition phrase at the counter. Sixty-three percent. Move.",
   "CINDER said the light there reminded him of the observation deck on Vanguard during solar approach. He was being sentimental.",
   "They are expecting you. Do not linger.",
   "CINDER liked blending in somewhere ordinary between assignments. Neptune was one of those places.",
-  "If {ESCORT} tries to order anything, do not vouch for it.",
+  "The drink is already paid for — you just have to ask for it. Do not walk out with only the envelope.",
+  "{ESCORT}'s matcha is on the same tab. It will sulk if you forget. Frankly, so would I.",
 ],
 depot_confirm:[
   {t:"Resupply confirmed. Fifty percent.",sp:true},
@@ -1955,6 +1958,7 @@ async function continueAfterDisposal(key) {
   }
   if (key === 's7_confirm') {
     addLine('> RECOGNITION PHRASE: "I\'m here to collect for NOVA-7"', 'sys');
+    addLine('> AT THE COUNTER: COLLECT ENVELOPE · ORDER YOUR PREPAID DRINK · MATCHA FOR THE UNIT', 'sys');
     addLine('> WAYPOINT: RESUPPLY — NEPTUNE CAFÉ', 'sys');
     stage=2;
     setWaypoint('depot');

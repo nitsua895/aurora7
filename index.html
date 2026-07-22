@@ -577,10 +577,30 @@ function devJump(s) {
   bikeRevealed = s>=1; bikeCleared = s>=1;
   shelterCleared = s>=5;
   parkCleared = s>=7;
+  // Any jump target is past the whole escort onboarding in real play — set
+  // it done so later {ESCORT} lines read naturally instead of falling back
+  // to "the android", and so nothing is still waiting on a scan/name.
+  escortActivated = true;
+  awaitingEscortScan = false;
+  awaitingEscortName = false;
+  if (!escortName) escortName = 'UNIT';
   const sigMap = {0:71,1:71,2:63,3:50,4:36,6:18,7:12};
   sigPct = sigMap[s] ?? 71;
   setSig(sigPct);
   if (STAGE_WAYPOINT[s]) setWaypoint(STAGE_WAYPOINT[s]); else setWaypoint(null);
+  // Matches the chapter marker that plays in real flow at the moment
+  // `stage` first becomes s — makes it obvious which narrative point a
+  // jump lands you at instead of a silent state change.
+  const CHAPTER_FOR_JUMP = {
+    0: '// CHAPTER 01 — FIRST CONTACT',
+    1: '// CHAPTER 02 — THE MONUMENT',
+    2: '// CHAPTER 03 — RESUPPLY',
+    3: '// CHAPTER 04 — THE OUTPOST',
+    4: '// CHAPTER 04 — THE OUTPOST',
+    6: '// CHAPTER 06 — APPROACH COMPLETE',
+    7: '// CHAPTER 06b — FINAL APPROACH',
+  };
+  if (CHAPTER_FOR_JUMP[s]) addLine(CHAPTER_FOR_JUMP[s], 'chapter');
   busy = false;
   awaitingReflection = false;
   saveState({lastLine:'dev jump → stage '+s});
@@ -936,6 +956,7 @@ let awaitingReflection = false;
 // Sub-gates within stage 0 (ground rover) and stage 4/6 (physical NFC anchors)
 let bikeRevealed = false, bikeCleared = false, shelterCleared = false, parkCleared = false;
 let escortActivated = false; // not stage-gated — the escort can show up whenever
+let awaitingEscortScan = false;
 let awaitingEscortName = false;
 let escortName = null;
 
@@ -952,7 +973,7 @@ function saveState(extra={}) {
     const feedLines = Array.from(feed.children)
       .slice(-200)
       .map(d=>({t:d.textContent, c:d.className.replace(/^line\s*/,'').trim()}));
-    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortName, ...extra}));
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortScan, awaitingEscortName, ...extra}));
   } catch(e){}
 }
 function loadState() {
@@ -1930,9 +1951,10 @@ async function boot() {
   // both cipher-scan paths already no-op while busy is true.
   busy = true;
   const saved = loadState();
-  // stage stays 0 through the ground-rover gate, so also resume on rover
-  // sub-progress alone or a fresh reload would replay the entire intro.
-  if (saved && (saved.stage > 0 || saved.bikeRevealed)) {
+  // stage stays 0 through the ground-rover gate AND the whole escort
+  // onboarding, so also resume on rover sub-progress or escort progress
+  // alone — otherwise a reload during either would replay the entire intro.
+  if (saved && (saved.stage > 0 || saved.bikeRevealed || saved.escortActivated || saved.awaitingEscortScan || saved.awaitingEscortName)) {
     stage = saved.stage;
     sigPct = saved.sigPct || 71;
     freeIdx = saved.freeIdx || {};
@@ -1942,6 +1964,7 @@ async function boot() {
     parkCleared = saved.parkCleared || false;
     escortActivated = saved.escortActivated || false;
     escortName = saved.escortName || null;
+    awaitingEscortScan = saved.awaitingEscortScan || false;
     awaitingEscortName = saved.awaitingEscortName || false;
     setSig(sigPct);
     if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
@@ -1979,9 +2002,12 @@ async function boot() {
   // it triggers) can actually reach submit() — busy stays true for the
   // rest of this function otherwise and blocks every incoming scan.
   addLine('> SCAN THE SUPPORT UNIT TAG TO CONTINUE', 'sys');
+  awaitingEscortScan = true;
+  saveState({lastLine:'awaiting escort scan'});
   busy = false;
   enableInput();
   await waitForEscortReady();
+  awaitingEscortScan = false;
   busy = true;
   disableInput();
 
@@ -2263,6 +2289,7 @@ async function submit() {
   // meet up. One-time boot sequence + ASCII reveal.
   if (val === CODES.ESCORT && !escortActivated) {
     escortActivated = true;
+    awaitingEscortScan = false;
     addLine('> NFC TAG READ — SUPPORT UNIT DETECTED', 'sys');
     await W8(500);
     addLine('> SUPPORT UNIT — POWER ON', 'sys');
@@ -2457,6 +2484,11 @@ async function submit() {
   }
 
   // ON-SITE HELP
+  if (awaitingEscortScan && isHelpPhrase(val)) {
+    await typeLine('Your escort should be close by now. Scan the tag on it — that is the only thing that continues from here.', 'aria', true, false);
+    saveState({});
+    busy=false; enableInput(); return;
+  }
   if (HELP_HINTS[stage] && isHelpPhrase(val)) {
     await typeLine(HELP_HINTS[stage], 'aria', true, false);
     saveState({});

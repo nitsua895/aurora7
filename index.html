@@ -1872,16 +1872,21 @@ async function showEscortLocationCoords() {
   await W8(500);
   try {
     if (!navigator.geolocation) throw new Error('no geolocation');
-    // getCurrentPosition's own `timeout` option is not reliable if the
-    // permission prompt itself is left pending (never granted or denied) —
-    // observed hanging indefinitely in testing. A hard wall-clock race
-    // guarantees this can never softlock the opening sequence live.
-    const pos = await Promise.race([
-      new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:6000});
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('hard timeout')), 6500/devSpeedFactor)),
-    ]);
+    // Share the corner badge's own watcher (lastGpsPos) instead of racing a
+    // second, separate getCurrentPosition call against a short timeout — a
+    // cold GPS lock outdoors can take longer than a few seconds, and the
+    // watcher started earlier (at page load) so it often already has, or is
+    // about to have, a real fix. Whichever lands first wins; only give up
+    // and fall back after a genuinely patient wait.
+    const HARD_TIMEOUT_MS = 15000;
+    const pos = await new Promise((resolve, reject) => {
+      if (lastGpsPos) { resolve(lastGpsPos); return; }
+      const start = Date.now();
+      const iv = setInterval(() => {
+        if (lastGpsPos) { clearInterval(iv); resolve(lastGpsPos); }
+        else if (Date.now()-start > HARD_TIMEOUT_MS/devSpeedFactor) { clearInterval(iv); reject(new Error('hard timeout')); }
+      }, 300);
+    });
     const lat = pos.coords.latitude.toFixed(6);
     const lon = pos.coords.longitude.toFixed(6);
     await typeLine('CURRENT POSITION: '+lat+', '+lon, 'hilite', false, false);
@@ -2203,6 +2208,7 @@ async function boot() {
   await W8(700);
   await playSeq(SCRIPT.boot_pre, 'aria', 520);
   await showEscortLocationCoords();
+  await typeLine('When it picks up, say "initiate escort" — that is the verbal confirmation it is listening for. It will not move until it hears that exact phrase.', 'aria', true, false);
   await waitForTap('HOME ANDROID LOCATION', '8594865042');
 
   // Hand control back so the escort's own NFC scan (and the naming prompt

@@ -491,8 +491,18 @@ const HELP_HINTS = {
   6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there.",
   7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation, secured with a combination lock. The code is 3426 — the same one I gave you at the island tree. When you have the suit, put it on. Then tell me.",
 };
+// Escalation for the two wordplay stages that don't already hand him the
+// literal code on first hint (0 is deliberately withheld — ARIA does not
+// have the bike combo; 2/4/6/7 already give a direct physical action or
+// the code outright). Asking for help twice at the same stage appends
+// this to the hint — there is no other fallback layer anymore.
+const HELP_ANSWERS = {
+  1: "If you would rather just have it: the cipher is AURORA7.",
+  3: "If you would rather just have it: the cipher is PEICLIFF.",
+};
 function isHelpPhrase(val) {
-  return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT"].some(t=>val.includes(t));
+  return ["I'M HERE","IM HERE","I AM HERE","HELP","STUCK","LOST","WHAT DO I DO","DON'T KNOW","DONT KNOW","CAN'T FIND","CANT FIND","NEED HELP","WHAT NOW","WHERE IS","WHAT AM I","NOT SURE","I DON'T","I DONT","CONFUSED","WHAT NEXT",
+    "HINT","CLUE","TIP","CIPHER","WHAT IS THE CODE","WHATS THE CODE","TELL ME","JUST TELL","NO TAG","NOTHING HERE","CAN'T SEE","CANT SEE","DON'T SEE","DONT SEE","DONT KNOW WHAT","IDK"].some(t=>val.includes(t));
 }
 
 // ═══════════════════════════════════════
@@ -773,8 +783,6 @@ escort_activate:[
   {t:"Support unit online. I will spare you the technical specs — you can see it.",sp:true},
   {t:"I did say I would apologize in advance. Whatever CINDER had lying around went into that android. Function over form. Mostly function.",sp:true},
   {t:"It will not hold a conversation with you. Treat it like a radio with legs.",sp:true},
-  {t:"If you get stuck badly enough that a hint from me will not cut it, it can open a deeper channel — more direct, more capable, built to think it through with you properly. That costs it real power every time.",sp:true},
-  {t:"Use it if you need it. It is not free.",sp:true},
 ],
 rover_free_pre:[
   "Find the ground unit first. Everything else waits.",
@@ -961,6 +969,7 @@ let sigPct = 71;
 let busy = false;
 let audioUnlocked = false;
 let freeIdx = {};
+let helpAskCount = {};
 let awaitingReflection = false;
 // Sub-gates within stage 0 (ground rover) and stage 4/6 (physical NFC anchors)
 let bikeRevealed = false, bikeCleared = false, shelterCleared = false, parkCleared = false;
@@ -2372,7 +2381,7 @@ async function submit() {
     addLine('> UNIT ACTIVE', 'sys');
     await W8(400);
     await playSeq(SCRIPT.escort_activate, 'aria', 380);
-    await typeLine('The ground unit already has a designation. This one does not. Name it, and I will log it — that is what we call it from here on.', 'aria', true, false);
+    await typeLine('The ground unit already has a designation. This support android does not. Give it a name — that is what we call it from here on.', 'aria', true, false);
     awaitingEscortName = true;
     saveState({lastLine:'awaiting escort name'});
     busy=false; enableInput();
@@ -2557,7 +2566,10 @@ async function submit() {
     busy=false; enableInput(); return;
   }
   if (HELP_HINTS[stage] && isHelpPhrase(val)) {
-    await typeLine(HELP_HINTS[stage], 'aria', true, false);
+    helpAskCount[stage] = (helpAskCount[stage]||0) + 1;
+    let hint = HELP_HINTS[stage];
+    if (helpAskCount[stage] >= 2 && HELP_ANSWERS[stage]) hint += ' ' + HELP_ANSWERS[stage];
+    await typeLine(hint, 'aria', true, false);
     saveState({});
     busy=false; enableInput(); return;
   }

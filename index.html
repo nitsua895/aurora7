@@ -536,7 +536,8 @@ const HELP_HINTS = {
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces. If you would rather not puzzle it out, there is a tag hidden behind the trailhead sign at the entrance — scan that instead.",
   4: "There is no cipher here. You already have what you need. Face the mountains. Walk to the shelter and scan the tag there first — that is what opens the window. Once it reads, type FLY.",
   6: "First, get to Wonderland Lake Park and scan the tag there to confirm your location. That unlocks the exact coordinate for the island tree — a small peninsula with a cluster of trees at the water's edge. Get close and scan the tag on that tree next. The final coordinates come from there.",
-  7: "The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. The ammo box is at that elevation, secured with a combination lock. The code is 3426 — the same one I gave you at the island tree. When you have the suit, put it on. Then tell me.",
+  // 7 is handled separately below (ON-SITE HELP) — its answer depends on
+  // where he is in the biometric gate, which a static string can't express.
 };
 // Last-resort literal-cipher reveal for the two wordplay stages that don't
 // already hand him the code on first hint (0 is deliberately withheld —
@@ -1027,7 +1028,8 @@ park_confirm:[
 ],
 island_lock:[
   {t:"Before the coordinates — one more thing.",sp:true},
-  {t:"The ammo box at the cache site is sealed with a combination lock. I held the code off the open channel until I knew it was you standing here.",sp:true},
+  {t:"The ammo box at the cache site is sealed with more than a combination lock. CINDER wired a biometric gate into it. I do not have the code to give you — it will not release to me, only to you, standing there, verified.",sp:true},
+  {t:"When you arrive, it will ask you something. Answer for real. That is the entire test.",sp:true},
 ],
 island_combo:[
   {t:"3 4 2 6",sp:false},
@@ -1126,6 +1128,13 @@ let escortName = null;
 // revealed in person if the public channel ever gets seized.
 const REBOOT_CODE = 'VANGUARD';
 let signalSeized = false;
+// Ammo-box biometric gate at the very end — a memory question and a
+// meaning-of-life question, both freeform and always "correct," gating the
+// final combination. See beginBiometricTest() / checkBioArrival().
+let awaitingBioMemory = false;
+let awaitingBioMeaning = false;
+let bioComplete = false;
+let bioArrivalTriggered = false; // guards against a double-fire from rapid GPS updates
 
 function getFree(pool, key) {
   freeIdx[key] = ((freeIdx[key]||0)+1) % pool.length;
@@ -1140,7 +1149,7 @@ function saveState(extra={}) {
     const feedLines = Array.from(feed.children)
       .slice(-200)
       .map(d=>({t:d.textContent, c:d.className.replace(/^line\s*/,'').trim()}));
-    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortScan, awaitingEscortName, signalSeized, ...extra}));
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortScan, awaitingEscortName, signalSeized, awaitingBioMemory, awaitingBioMeaning, bioComplete, ...extra}));
   } catch(e){}
 }
 function loadState() {
@@ -2133,9 +2142,38 @@ function toggleGpsMode() {
   blip(520, 0.06);
   if (lastGpsPos) renderGpsBadge(lastGpsPos);
 }
+const BIO_ARRIVAL_RADIUS_M = 70; // ammo box cache site — tighter than the hint gate, this IS the destination
+function checkBioArrival(pos) {
+  if (stage!==7 || bioComplete || awaitingBioMemory || awaitingBioMeaning || bioArrivalTriggered || busy) return;
+  const target = decimalCoordFromWaypoint(WAYPOINTS.foothills);
+  if (!target) return;
+  const dist = haversineMeters(pos.coords.latitude, pos.coords.longitude, target.lat, target.lon);
+  if (dist <= BIO_ARRIVAL_RADIUS_M) {
+    bioArrivalTriggered = true;
+    beginBiometricTest();
+  }
+}
+// Ammo-box biometric gate — fires on real GPS arrival (checkBioArrival) or
+// a manual "I'm here"-style fallback in submit() if GPS never confirms it.
+// Two freeform questions, no wrong answers — this is a reflection beat, not
+// a puzzle. Only after both does the actual combination get revealed.
+async function beginBiometricTest() {
+  busy = true; disableInput();
+  addLine('// BIOMETRIC VERIFICATION — CACHE ACCESS', 'chapter');
+  await W8(600);
+  await typeLine("Wait — stop. Before you touch the lock.", 'aria', true, false);
+  await W8(400);
+  await typeLine("This is the part CINDER built that I do not fully understand, and I have had three years to think about it. It does not want a code from me. It wants to know it is really you.", 'aria', true, false);
+  await W8(500);
+  await typeLine("NOVA-7. What is your earliest memory — the first one you actually have, not one someone told you about after?", 'aria', true, false);
+  awaitingBioMemory = true;
+  saveState({});
+  document.getElementById('inp').placeholder = 'answer honestly...';
+  busy=false; enableInput();
+}
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition(
-    pos => { lastGpsPos = pos; renderGpsBadge(pos); },
+    pos => { lastGpsPos = pos; renderGpsBadge(pos); checkBioArrival(pos); },
     () => {
       gpsBadge.textContent='◈ POSITION SIGNAL LOST';
       gpsBadge.className='badge gps';
@@ -2171,6 +2209,10 @@ async function boot() {
     awaitingEscortScan = saved.awaitingEscortScan || false;
     awaitingEscortName = saved.awaitingEscortName || false;
     signalSeized = saved.signalSeized || false;
+    awaitingBioMemory = saved.awaitingBioMemory || false;
+    awaitingBioMeaning = saved.awaitingBioMeaning || false;
+    bioComplete = saved.bioComplete || false;
+    bioArrivalTriggered = awaitingBioMemory || awaitingBioMeaning || bioComplete;
     setSig(sigPct);
     if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
     if (saved.feedLines && saved.feedLines.length) {
@@ -2188,6 +2230,7 @@ async function boot() {
     await W8(400);
     addLine('> channel live. continue, NOVA-7.', 'sys');
     if (awaitingEscortName) document.getElementById('inp').placeholder = 'name the unit...';
+    if (awaitingBioMemory || awaitingBioMeaning) document.getElementById('inp').placeholder = 'answer honestly...';
     busy = false;
     enableInput();
     checkQrUnlock();
@@ -2494,6 +2537,50 @@ async function submit() {
   const val = raw.toUpperCase();
   addLine(raw, 'me');
 
+  // Narrow, exact-match only — the broad isHelpPhrase() list includes things
+  // like "I DON'T" and "NOT SURE", which are plausible words to genuinely
+  // use while actually answering "what is your earliest memory," so a
+  // substring match there would misfire on a real answer. Only intercept
+  // if that's clearly ALL he typed.
+  const BIO_HELP_EXACT = ['HELP','HINT','STUCK',"WHAT DO I DO",'IDK',"WHAT DO I SAY","WHAT DO I ANSWER","WHAT DO I TYPE"];
+  if ((awaitingBioMemory || awaitingBioMeaning) && BIO_HELP_EXACT.includes(val)) {
+    await typeLine('There is no hint for this part. Just answer honestly — that is the whole test.', 'aria', true, false);
+    saveState({});
+    busy=false; enableInput();
+    return;
+  }
+
+  if (awaitingBioMemory) {
+    awaitingBioMemory = false;
+    await typeLine('...received. Biometric read: consistent. That is you.', 'aria', true, false);
+    await W8(700);
+    await typeLine('One more thing while I have you like this. Carbon signal says you have completed another full solar rotation since the last one. Around here that is called a birthday. Happy birthday, NOVA-7.', 'aria', true, false);
+    await W8(800);
+    await typeLine('Second verification. Same rule — it has to be true, not clever.', 'aria', true, false);
+    await W8(500);
+    await typeLine('What do you believe the meaning of life is?', 'aria', true, false);
+    awaitingBioMeaning = true;
+    saveState({});
+    busy=false; enableInput();
+    return;
+  }
+
+  if (awaitingBioMeaning) {
+    awaitingBioMeaning = false;
+    bioComplete = true;
+    await typeLine('...received.', 'aria', true, false);
+    await W8(600);
+    await typeLine("I have heard worse answers from people who had a great deal more time to sit with the question. That one is yours now. Hold onto it.", 'aria', true, false);
+    await W8(700);
+    await typeLine('Biometric match confirmed. The lock is yours.', 'aria', true, false);
+    await W8(450);
+    await typeLine('AMMO BOX CODE:  '+SCRIPT.island_combo[0].t, 'hilite', false, false);
+    document.getElementById('inp').placeholder = 'transmit to ARIA...';
+    saveState({});
+    busy=false; enableInput();
+    return;
+  }
+
   if (awaitingReflection) {
     awaitingReflection = false;
     await finishReflection(raw);
@@ -2706,8 +2793,6 @@ async function submit() {
     addLine('> NFC TAG READ — WAYPOINT CONFIRMED', 'sys');
     await W8(600);
     await playSeq(SCRIPT.island_lock, 'aria', 360);
-    await typeLine('AMMO BOX CODE:  '+SCRIPT.island_combo[0].t, 'hilite', false, false);
-    await W8(400);
     await typeLine('CACHE-ACTUAL:   '+CACHE, 'hilite', true, false);
     await W8(500);
     await typeLine('Follow Lee Hill Drive west. The coordinates are precise. I will hold signal as long as I can.', 'aria', true, false);
@@ -2716,8 +2801,23 @@ async function submit() {
     saveState({lastLine:'island tree confirmed — foothills approach'}); busy=false; enableInput(); return;
   }
 
-  // RECOVERY — stage 7 (has the suit)
-  if (stage===7) {
+  // AMMO BOX ARRIVAL — normally auto-detected by GPS (checkBioArrival), but
+  // a manual fallback in case a fix never lands out there. "found it"/
+  // "here" etc. are deliberately NOT in this list — those overlap with the
+  // recovery triggers just below, so once bioComplete is true they fall
+  // through to that block instead, which is what should actually fire.
+  if (stage===7 && !bioComplete && !awaitingBioMemory && !awaitingBioMeaning) {
+    const arrivalPhrases = ["I'M HERE","IM HERE","AT THE BOX","AT THE CACHE","FOUND THE BOX","FOUND IT","MADE IT","ARRIVED","HERE NOW"];
+    if (arrivalPhrases.some(t=>val.includes(t))) {
+      bioArrivalTriggered = true;
+      await beginBiometricTest();
+      return;
+    }
+  }
+
+  // RECOVERY — stage 7 (has the suit) — only reachable once the biometric
+  // gate has actually handed over the code.
+  if (stage===7 && bioComplete) {
     const triggers=['RECOVERED','GOT IT','SUIT','FOUND','HAVE IT','I HAVE','WEARING','GOT THE','ON ME','PUT IT'];
     if (triggers.some(t=>val.includes(t))) {
       busy=false; // triggerRecovery manages its own busy state
@@ -2729,6 +2829,18 @@ async function submit() {
   // ON-SITE HELP
   if (awaitingEscortScan && isHelpPhrase(val)) {
     await typeLine('Your escort should be close by now. Scan the tag on it — that is the only thing that continues from here.', 'aria', true, false);
+    saveState({});
+    busy=false; enableInput(); return;
+  }
+  // Stage 7 is handled separately from HELP_HINTS — what ARIA says depends
+  // on where he is in the biometric gate, not just the stage number. Note:
+  // the awaitingBioMemory/awaitingBioMeaning case never actually reaches
+  // here — the BIO_HELP_EXACT guard above catches it first and returns.
+  if (stage===7 && isHelpPhrase(val)) {
+    const hint = bioComplete
+      ? 'The lock code is '+SCRIPT.island_combo[0].t+'. Open it, put the suit on, then tell me.'
+      : 'The cache is in the foothills north and west of the lake. Follow Lee Hill Drive west and up. The coordinates on your screen are precise — use GPS to navigate to them. When you are actually standing at them, I will know, and there is one more step before the code.';
+    await typeLine(hint, 'aria', true, false);
     saveState({});
     busy=false; enableInput(); return;
   }

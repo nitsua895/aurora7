@@ -1135,6 +1135,9 @@ let awaitingBioMemory = false;
 let awaitingBioMeaning = false;
 let bioComplete = false;
 let bioArrivalTriggered = false; // guards against a double-fire from rapid GPS updates
+// Physical cleanup after every scanned tag — hand it to the escort to bag,
+// no trail left behind. See waitForDisposal() below.
+let awaitingDisposal = false;
 
 function getFree(pool, key) {
   freeIdx[key] = ((freeIdx[key]||0)+1) % pool.length;
@@ -1149,7 +1152,7 @@ function saveState(extra={}) {
     const feedLines = Array.from(feed.children)
       .slice(-200)
       .map(d=>({t:d.textContent, c:d.className.replace(/^line\s*/,'').trim()}));
-    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortScan, awaitingEscortName, signalSeized, awaitingBioMemory, awaitingBioMeaning, bioComplete, ...extra}));
+    localStorage.setItem(SAVE, JSON.stringify({stage, sigPct, freeIdx, feedLines, bikeRevealed, bikeCleared, shelterCleared, parkCleared, escortActivated, escortName, awaitingEscortScan, awaitingEscortName, signalSeized, awaitingBioMemory, awaitingBioMeaning, bioComplete, awaitingDisposal, pendingDisposalKey, ...extra}));
   } catch(e){}
 }
 function loadState() {
@@ -1913,6 +1916,82 @@ function waitForEscortReady() {
   return new Promise(resolve => { _escortReadyResolve = resolve; });
 }
 
+// After every scanned tag: hand it off to {ESCORT} to bag before continuing.
+// No verification is possible from the terminal — same as the biometric
+// answers, whatever he types next is accepted as confirmation; the point is
+// a required physical pause, not a check.
+//
+// Deliberately NOT a resolver-Promise like waitForEscortReady — that pattern
+// only works within a single unbroken page session, because the paused
+// caller lives on the JS call stack and a reload destroys it. This fires
+// six times over the course of a multi-hour hunt, so a reload mid-wait has
+// to actually work: awaitingDisposal + pendingDisposalKey are both
+// persisted, and continueAfterDisposal(key) — called from submit()'s
+// awaitingDisposal handler — holds the actual "what happens next" logic
+// that used to live inline after the reminder, so resuming after a reload
+// re-runs the exact same continuation instead of losing it.
+let pendingDisposalKey = null;
+async function beginDisposal(key) {
+  await typeLine("Before you move — hand that tag to {ESCORT}. It is holding a bag for it. Nothing gets left in the field; that is the whole point of using it instead of just telling you the site. Security measure, not littering.", 'aria', true, false);
+  awaitingDisposal = true;
+  pendingDisposalKey = key;
+  document.getElementById('inp').placeholder = 'confirm once it is bagged...';
+  saveState({});
+  busy = false; enableInput();
+}
+async function continueAfterDisposal(key) {
+  busy = true; disableInput();
+  document.getElementById('inp').placeholder = 'transmit to ARIA...';
+  if (key === 'rover_reveal') {
+    addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
+    saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
+    busy=false; enableInput(); return;
+  }
+  if (key === 's7_confirm') {
+    addLine('> RECOGNITION PHRASE: "I\'m here to collect for NOVA-7"', 'sys');
+    addLine('> WAYPOINT: RESUPPLY — NEPTUNE CAFÉ', 'sys');
+    stage=2;
+    setWaypoint('depot');
+    saveState({lastLine:SCRIPT.s7_confirm[SCRIPT.s7_confirm.length-1].t});
+    busy=false; enableInput(); return;
+  }
+  if (key === 'outpost_pre') {
+    await W8(300);
+    addLine('> ▶ DECRYPTING — ARIA PERSONAL LOG // MARCH 2031', 'sys');
+    await W8(600);
+    await playSeq(SCRIPT.outpost_log, 'aria', 380);
+    await playSeq(SCRIPT.outpost_post, 'aria', 360);
+    addLine('> SCAN AT THE SHELTER TO OPEN THE REENTRY WINDOW', 'sys');
+    stage=4;
+    setWaypoint('field');
+    saveState({lastLine:SCRIPT.outpost_post[SCRIPT.outpost_post.length-1].t});
+    busy=false; enableInput(); return;
+  }
+  if (key === 'shelter') {
+    await typeLine('Clearance granted. The window is yours whenever you are ready. Type FLY.', 'aria', true, false);
+    saveState({lastLine:'shelter anchor confirmed'});
+    busy=false; enableInput(); return;
+  }
+  if (key === 'park_confirm') {
+    saveState({lastLine:SCRIPT.park_confirm[SCRIPT.park_confirm.length-1].t});
+    await W8(500);
+    await triggerSignalSeizure(); // manages its own busy/input state
+    return;
+  }
+  if (key === 'island') {
+    await playSeq(SCRIPT.island_lock, 'aria', 360);
+    await typeLine('CACHE-ACTUAL:   '+CACHE, 'hilite', true, false);
+    await W8(500);
+    await typeLine('Follow Lee Hill Drive west. The coordinates are precise. I will hold signal as long as I can.', 'aria', true, false);
+    addLine('> WAYPOINT: CACHE SITE — FOOTHILLS NORTH, LEE HILL', 'sys');
+    stage=7; setWaypoint('foothills');
+    saveState({lastLine:'island tree confirmed — foothills approach'});
+    busy=false; enableInput(); return;
+  }
+  // Unknown/missing key (should not happen) — fail open rather than stall.
+  busy=false; enableInput();
+}
+
 // Flat typing pace regardless of signal strength — the Android TTS engine
 // that actually voices these lines can't be slowed down to match a decaying
 // signal, so tying text speed to sigPct just desyncs voice and text for no
@@ -2213,6 +2292,8 @@ async function boot() {
     awaitingBioMeaning = saved.awaitingBioMeaning || false;
     bioComplete = saved.bioComplete || false;
     bioArrivalTriggered = awaitingBioMemory || awaitingBioMeaning || bioComplete;
+    awaitingDisposal = saved.awaitingDisposal || false;
+    pendingDisposalKey = saved.pendingDisposalKey || null;
     setSig(sigPct);
     if (STAGE_WAYPOINT[stage]) setWaypoint(STAGE_WAYPOINT[stage]);
     if (saved.feedLines && saved.feedLines.length) {
@@ -2231,6 +2312,7 @@ async function boot() {
     addLine('> channel live. continue, NOVA-7.', 'sys');
     if (awaitingEscortName) document.getElementById('inp').placeholder = 'name the unit...';
     if (awaitingBioMemory || awaitingBioMeaning) document.getElementById('inp').placeholder = 'answer honestly...';
+    if (awaitingDisposal) document.getElementById('inp').placeholder = 'confirm once it is bagged...';
     busy = false;
     enableInput();
     checkQrUnlock();
@@ -2537,6 +2619,13 @@ async function submit() {
   const val = raw.toUpperCase();
   addLine(raw, 'me');
 
+  if (awaitingDisposal) {
+    awaitingDisposal = false;
+    const key = pendingDisposalKey; pendingDisposalKey = null;
+    await continueAfterDisposal(key);
+    return;
+  }
+
   // Narrow, exact-match only — the broad isHelpPhrase() list includes things
   // like "I DON'T" and "NOT SURE", which are plausible words to genuinely
   // use while actually answering "what is your earliest memory," so a
@@ -2654,9 +2743,8 @@ async function submit() {
     addLine('> NFC TAG READ — GROUND UNIT DETECTED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.rover_reveal, 'aria', 360);
-    addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
-    saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
-    busy=false; enableInput(); return;
+    await beginDisposal('rover_reveal');
+    return;
   }
   if (stage===0 && bikeRevealed && !bikeCleared) {
     const unlockPhrases=['UNLOCKED','ITS OPEN',"IT'S OPEN",'OPEN','DONE','GOT IT','READY','UNLOCK'];
@@ -2686,13 +2774,8 @@ async function submit() {
     addLine(ART.rocket, 'ascii');
     await W8(500);
     await playSeq(SCRIPT.s7_confirm, 'aria', 360);
-    addLine('> RECOGNITION PHRASE: "I\'m here to collect for NOVA-7"', 'sys');
-    addLine('> WAYPOINT: RESUPPLY — NEPTUNE CAFÉ', 'sys');
-    stage=2;
-    setWaypoint('depot');
-    const lastLine=SCRIPT.s7_confirm[SCRIPT.s7_confirm.length-1].t;
-    saveState({lastLine});
-    busy=false; enableInput(); return;
+    await beginDisposal('s7_confirm');
+    return;
   }
 
   // DEPOT
@@ -2718,17 +2801,8 @@ async function submit() {
     addLine(ART.outpost, 'ascii');
     await W8(400);
     await playSeq(SCRIPT.outpost_pre, 'aria', 340);
-    await W8(300);
-    addLine('> ▶ DECRYPTING — ARIA PERSONAL LOG // MARCH 2031', 'sys');
-    await W8(600);
-    await playSeq(SCRIPT.outpost_log, 'aria', 380);
-    await playSeq(SCRIPT.outpost_post, 'aria', 360);
-    addLine('> SCAN AT THE SHELTER TO OPEN THE REENTRY WINDOW', 'sys');
-    stage=4;
-    setWaypoint('field');
-    const lastLine=SCRIPT.outpost_post[SCRIPT.outpost_post.length-1].t;
-    saveState({lastLine});
-    busy=false; enableInput(); return;
+    await beginDisposal('outpost_pre');
+    return;
   }
 
   // SHELTER — Eben G. Fine Park shelter NFC anchor, unlocks FLY
@@ -2737,9 +2811,8 @@ async function submit() {
     playUnlockSound(); hapticPattern([50,35,110]);
     addLine('> NFC TAG READ — PHYSICAL ANCHOR CONFIRMED', 'sys');
     await W8(400);
-    await typeLine('Clearance granted. The window is yours whenever you are ready. Type FLY.', 'aria', true, false);
-    saveState({lastLine:'shelter anchor confirmed'});
-    busy=false; enableInput(); return;
+    await beginDisposal('shelter');
+    return;
   }
 
   // FLY
@@ -2775,9 +2848,7 @@ async function submit() {
     await W8(500);
     await playSeq(SCRIPT.park_confirm, 'aria', 360);
     addLine(ART.lake, 'ascii');
-    saveState({lastLine:SCRIPT.park_confirm[SCRIPT.park_confirm.length-1].t});
-    await W8(500);
-    await triggerSignalSeizure(); // interrupts here — waypoint-alpha only comes after the override
+    await beginDisposal('park_confirm');
     return;
   }
 
@@ -2792,13 +2863,8 @@ async function submit() {
     addLine('// CHAPTER 06b — FINAL APPROACH', 'chapter');
     addLine('> NFC TAG READ — WAYPOINT CONFIRMED', 'sys');
     await W8(600);
-    await playSeq(SCRIPT.island_lock, 'aria', 360);
-    await typeLine('CACHE-ACTUAL:   '+CACHE, 'hilite', true, false);
-    await W8(500);
-    await typeLine('Follow Lee Hill Drive west. The coordinates are precise. I will hold signal as long as I can.', 'aria', true, false);
-    addLine('> WAYPOINT: CACHE SITE — FOOTHILLS NORTH, LEE HILL', 'sys');
-    stage=7; setWaypoint('foothills');
-    saveState({lastLine:'island tree confirmed — foothills approach'}); busy=false; enableInput(); return;
+    await beginDisposal('island');
+    return;
   }
 
   // AMMO BOX ARRIVAL — normally auto-detected by GPS (checkBioArrival), but

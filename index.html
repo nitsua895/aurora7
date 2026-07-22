@@ -482,7 +482,7 @@ const DEV_MODE = new URLSearchParams(location.search).has('dev');
 // ON-SITE HELP — triggered when Trevor says he's lost
 // ═══════════════════════════════════════
 const HELP_HINTS = {
-  0: "It is your bike. CINDER left it parked outside where you would see it — blue, easy to miss if you are not looking for it. Find the tag on the frame and scan it. Once it reads, get the lock open and tell me.",
+  0: "It is your bike. CINDER left it parked outside where you would see it — blue, easy to miss if you are not looking for it. Find the tag on the frame and scan it. If you are stuck on the combination once it is locked, I do not have it — check the notebook. Once it reads, get the lock open and tell me.",
   1: "There is a rocket structure in this park. The tag is at the top of it. Get close and scan it. If you cannot reach it — think about what the rocket represents. This park is named for a man who flew in 1962. His capsule was named after an atmospheric phenomenon and a number. Put those together and you have your cipher.",
   2: "You do not need to find anything. Walk to the counter. Say this: \"I'm here to collect for NOVA-7.\" That is all. Someone is waiting for you to say those words.",
   3: "I.M. Pei designed this building by studying the rock faces rising above the city. Take his name — and the landform he pointed the building at — and put them together. That is the cipher. Look at the building. Look at what it faces. If you would rather not puzzle it out, there is a tag hidden behind the trailhead sign at the entrance — scan that instead.",
@@ -495,25 +495,41 @@ function isHelpPhrase(val) {
 }
 
 // ═══════════════════════════════════════
-// LOCK SCREEN — set LOCK_CODE to whatever the notebook's cipher decodes to.
-// The dossier now points Trevor to a locked backpack (physical key) instead
-// of handing him the code outright; the code itself is the last thing
-// CINDER wrote in the notebook, in Morse rather than plain text.
+// LOCK SCREEN — the primary path in is scanning the mission-badge NFC tag
+// (inside the notebook, inside the key-locked backpack): its URL carries
+// ?cipher=CINDER, which authenticates exactly like typing the code would.
+// Typing LOCK_CODE by hand on the lock screen still works too — a silent
+// fallback if the tag or NFC does not cooperate live. The code itself is
+// also the last thing CINDER wrote in the notebook, in Morse.
 // ═══════════════════════════════════════
 const LOCK_CODE = 'CINDER'; // Morse on the notebook's last page: -.-. .. -. -.. . .-.
 
 (function initLock(){
   const ls = document.getElementById('lockScreen');
+  const bootParams = new URLSearchParams(location.search);
   if (localStorage.getItem('aria_auth')==='1') {
     ls.remove();
     // If loading from an NFC scan (cipher param), skip the intro overlay entirely
     // The NFC scan overlay will serve as the single user-gesture entry point
-    if (new URLSearchParams(location.search).has('cipher')) {
+    if (bootParams.has('cipher')) {
       const io = document.getElementById('introOverlay');
       if (io) io.remove();
       // Defer until after all let/const declarations are initialized
       setTimeout(()=>{ boot(); startNfcListener(); }, 0);
     }
+    return;
+  }
+  // First-ever load, via the mission-badge tag: same cipher param as any
+  // other scan, but here it doubles as the lock-screen code — authenticate
+  // immediately instead of showing the typed-entry screen at all.
+  const badgeCipher = bootParams.get('cipher');
+  if (badgeCipher && badgeCipher.toUpperCase() === LOCK_CODE) {
+    localStorage.setItem('aria_auth','1');
+    history.replaceState(null, '', location.pathname + (location.hash||''));
+    ls.remove();
+    const io = document.getElementById('introOverlay');
+    if (io) io.remove();
+    setTimeout(()=>{ boot(); startNfcListener(); }, 0);
     return;
   }
   ls.style.display='flex';
@@ -691,10 +707,7 @@ boot:[
 ],
 rover_reveal:[
   {t:"Ground unit confirmed. CINDER did not want NOVA-7 covering this much ground on foot.",sp:true},
-  {t:"It is locked. CINDER left me the combination before he went dark. Get it open, then tell me.",sp:true},
-],
-rover_combo:[
-  {t:"+  →  +  −  ←  →",sp:false},
+  {t:"It is locked, and I do not have the combination — he never trusted that one to me over the air. Check what he left you. Get it open, then tell me.",sp:true},
 ],
 rover_confirm:[
   {t:"Unlocked. Good.",sp:true},
@@ -1864,6 +1877,7 @@ function beginTransmission() {
 }
 setTimeout(()=>{
   const btn = document.getElementById('introBtn');
+  if (!btn) return; // removed entirely on the badge-scan first-boot path
   btn.disabled = false;
   btn.classList.add('ready');
 }, 1800);
@@ -2101,7 +2115,6 @@ async function submit() {
     addLine('> NFC TAG READ — GROUND UNIT DETECTED', 'sys');
     await W8(500);
     await playSeq(SCRIPT.rover_reveal, 'aria', 360);
-    await typeLine(SCRIPT.rover_combo[0].t, 'hilite', false, false);
     addLine('> TELL ME WHEN IT IS UNLOCKED', 'sys');
     saveState({lastLine:SCRIPT.rover_reveal[SCRIPT.rover_reveal.length-1].t});
     busy=false; enableInput(); return;

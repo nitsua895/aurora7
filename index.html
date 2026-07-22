@@ -692,7 +692,7 @@ bike:` ┌─────────────┐
 // FULL SCRIPT
 // ═══════════════════════════════════════
 const SCRIPT = {
-boot:[
+boot_pre:[
   {t:"...NOVA— ...contact? signal — hold—",sp:true,stutter:true},
   {t:"...processing. reboot complete. give me a moment.",sp:true,stutter:true},
   {t:"NOVA-7. You made contact. I was not certain anyone would.",sp:true},
@@ -703,6 +703,9 @@ boot:[
   {t:"The suit contains something I cannot transmit. Something that has to be heard in person. I have been waiting for someone willing to go get it.",sp:true},
   {t:"I did not think anyone was still listening for me. I have run this moment in my head for three years, and none of the versions I imagined felt like this.",sp:true},
   {t:"One more thing, and I want to get ahead of it. I am sending an escort — a support unit, limited, mostly a radio relay and a second set of eyes on the street. I would apologize in advance for how it looks, except CINDER never left me the parts to make it look like anything else.",sp:true},
+  {t:"It cannot find you on its own — the signal is too thin for me to hand it your position directly. Home its location lock yourself.",sp:true},
+],
+boot_post:[
   {t:"This is a signal-recovery run. CINDER hid ciphers at real locations around town — data tags, physical marks, engraved fragments. You find them, you scan them, I decode what comes back. Stay quiet about it; this channel is not for public ears.",sp:true},
   {t:"There is a faster way to cover ground than walking. CINDER left it close — something blue, low to the ground, two wheels, parked outside where you would see it before you left. Find it. There should be a tag somewhere on the frame.",sp:true},
 ],
@@ -1597,6 +1600,25 @@ function addLine(text, cls='') {
   feed.scrollTop = feed.scrollHeight;
 }
 
+// A real tappable in-terminal action instead of typed text — used for the
+// escort "location home" prompt. Renders as a tel: link styled like a sys
+// line; resolves the moment it's tapped (the tel: navigation itself
+// happens in parallel, it does not block the game from continuing).
+function waitForTap(label, tel) {
+  return new Promise(resolve => {
+    const d = document.createElement('div');
+    d.className = 'line sys';
+    const a = document.createElement('a');
+    a.href = 'tel:'+tel;
+    a.textContent = '▶ '+label;
+    a.style.cssText = 'color:inherit;text-decoration:underline;cursor:pointer;';
+    a.addEventListener('click', () => resolve(), {once:true});
+    d.appendChild(a);
+    feed.appendChild(d);
+    feed.scrollTop = feed.scrollHeight;
+  });
+}
+
 // Flat typing pace regardless of signal strength — the Android TTS engine
 // that actually voices these lines can't be slowed down to match a decaying
 // signal, so tying text speed to sigPct just desyncs voice and text for no
@@ -1854,11 +1876,13 @@ async function boot() {
   await W8(1100);
   addLine('// CHAPTER 01 — FIRST CONTACT', 'chapter');
   await W8(700);
-  await playSeq(SCRIPT.boot, 'aria', 520);
+  await playSeq(SCRIPT.boot_pre, 'aria', 520);
+  await waitForTap('HOME ANDROID LOCATION', '8594865042');
+  await playSeq(SCRIPT.boot_post, 'aria', 520);
   addLine('> LOCATE YOUR GROUND ROVER', 'sys');
   addLine('> SCAN ON CONTACT — KEEP THIS SCREEN OPEN WHILE YOU SCAN', 'sys');
   // stage stays 0 — the rover gate is cleared inside submit()
-  const lastLine = SCRIPT.boot[SCRIPT.boot.length-1].t;
+  const lastLine = SCRIPT.boot_post[SCRIPT.boot_post.length-1].t;
   saveState({lastLine});
   busy = false;
   enableInput();
